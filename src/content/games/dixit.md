@@ -8,6 +8,7 @@ age: 8
 categories: ["imagination", "ambiance", "famille"]
 difficulty: "facile"
 officialRulesUrl: "https://www.libellud.com/nos-jeux/dixit/"
+image: "/images/games/dixit.svg"
 ---
 
 ## Objectif du jeu

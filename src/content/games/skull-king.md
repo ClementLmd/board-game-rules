@@ -8,6 +8,7 @@ age: 8
 categories: ["cartes", "stratégie", "ambiance"]
 difficulty: "moyen"
 officialRulesUrl: "https://www.schmidtspiele.de/skull-king"
+image: "/images/games/skull-king.svg"
 ---
 
 ## Objectif du jeu

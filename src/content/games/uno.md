@@ -8,6 +8,7 @@ age: 7
 categories: ["cartes", "famille", "ambiance"]
 difficulty: "facile"
 officialRulesUrl: "https://www.ultraboardgames.com/uno/game-rules.php"
+image: "/images/games/uno.svg"
 ---
 
 ## Objectif du jeu

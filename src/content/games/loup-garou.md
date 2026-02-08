@@ -8,6 +8,7 @@ age: 10
 categories: ["ambiance", "bluff", "déduction"]
 difficulty: "facile"
 officialRulesUrl: "https://www.loups-garous.com/regles"
+image: "/images/games/loup-garou.svg"
 ---
 
 ## Objectif du jeu

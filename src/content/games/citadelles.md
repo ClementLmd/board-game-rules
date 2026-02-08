@@ -8,6 +8,7 @@ age: 10
 categories: ["stratégie", "bluff", "cartes"]
 difficulty: "moyen"
 officialRulesUrl: "https://www.edge-entertainment.com/citadelles"
+image: "/images/games/citadelles.svg"
 ---
 
 ## Objectif du jeu

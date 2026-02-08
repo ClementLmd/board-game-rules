@@ -8,6 +8,7 @@ age: 10
 categories: ["stratégie", "commerce", "négociation"]
 difficulty: "moyen"
 officialRulesUrl: "https://www.catan.com/understand-catan/game-rules"
+image: "/images/games/catan.svg"
 ---
 
 ## Objectif du jeu
