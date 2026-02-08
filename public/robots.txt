@@ -1,0 +1,5 @@
+# robots.txt for regles-jeux.fr
+User-agent: *
+Allow: /
+
+Sitemap: https://regles-jeux.fr/sitemap-index.xml

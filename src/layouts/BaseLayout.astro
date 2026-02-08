@@ -13,11 +13,12 @@ interface Props {
 const {
   title,
   description = 'Retrouvez les règles de vos jeux de société préférés, expliquées simplement en français.',
-  ogImage = '/images/og-default.png',
+  ogImage = '/images/og-default.svg',
   ogType = 'website',
 } = Astro.props;
 
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
+const ogImageUrl = new URL(ogImage, Astro.site).href;
 ---
 
 <!doctype html>
@@ -32,16 +33,19 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:description" content={description} />
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalUrl} />
-    <meta property="og:image" content={ogImage} />
+    <meta property="og:image" content={ogImageUrl} />
     <meta property="og:locale" content="fr_FR" />
+    <meta property="og:site_name" content="Règles du Jeu" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
 
     <link rel="canonical" href={canonicalUrl} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate" type="application/rss+xml" title="Règles du Jeu — Flux RSS" href="/rss.xml" />
     <meta name="generator" content={Astro.generator} />
 
     <title>{title}</title>
@@ -49,8 +53,13 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
     <slot name="head" />
   </head>
   <body class="min-h-screen flex flex-col">
+    <!-- Skip to content (accessibility) -->
+    <a href="#main-content" class="skip-to-content">
+      Aller au contenu principal
+    </a>
+
     <Header />
-    <main class="flex-1">
+    <main id="main-content" class="flex-1" tabindex="-1">
       <slot />
     </main>
     <Footer />
