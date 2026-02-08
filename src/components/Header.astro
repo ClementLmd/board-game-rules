@@ -8,7 +8,7 @@ const navLinks = [
 const currentPath = Astro.url.pathname;
 ---
 
-<header class="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
+<header class="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50" role="banner">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between h-16">
       <!-- Logo -->
@@ -20,7 +20,7 @@ const currentPath = Astro.url.pathname;
       </a>
 
       <!-- Desktop Nav -->
-      <nav class="hidden md:flex items-center gap-1">
+      <nav class="hidden md:flex items-center gap-1" aria-label="Navigation principale">
         {navLinks.map((link) => (
           <a
             href={link.href}
@@ -53,7 +53,7 @@ const currentPath = Astro.url.pathname;
     </div>
 
     <!-- Mobile Nav -->
-    <nav id="mobile-menu" class="md:hidden hidden pb-4">
+    <nav id="mobile-menu" class="md:hidden hidden pb-4" aria-label="Navigation principale (mobile)">
       <div class="flex flex-col gap-1">
         {navLinks.map((link) => (
           <a

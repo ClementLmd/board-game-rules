@@ -12,6 +12,17 @@
   body {
     @apply bg-warm-50 text-gray-800 antialiased;
   }
+
+  /* Accessible focus indicators */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary-500;
+    outline-style: solid;
+  }
+
+  /* Remove default focus for mouse users */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
 }
 
 @layer components {
@@ -45,5 +56,14 @@
 
   .btn-secondary {
     @apply inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-white text-gray-700 font-medium text-sm border border-gray-200 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+
+  /* Skip-to-content link (a11y) */
+  .skip-to-content {
+    @apply fixed top-0 left-1/2 -translate-x-1/2 -translate-y-full z-[100] px-6 py-3 bg-primary-600 text-white font-medium text-sm rounded-b-lg shadow-lg transition-transform duration-200;
+  }
+
+  .skip-to-content:focus {
+    @apply translate-y-0;
   }
 }
