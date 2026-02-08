@@ -1,0 +1,73 @@
+---
+interface Props {
+  title: string;
+  slug: string;
+  description: string;
+  players: { min: number; max: number };
+  duration: string;
+  age: number;
+  categories: string[];
+  difficulty: 'facile' | 'moyen' | 'difficile';
+  image?: string;
+}
+
+const { title, slug, description, players, duration, age, categories, difficulty, image } = Astro.props;
+
+const difficultyLabels = {
+  facile: 'Facile',
+  moyen: 'Moyen',
+  difficile: 'Difficile',
+};
+
+const playersLabel = players.min === players.max
+  ? `${players.min} joueurs`
+  : `${players.min}-${players.max} joueurs`;
+---
+
+<a href={`/jeux/${slug}/`} class="game-card group block">
+  <!-- Image placeholder -->
+  <div class="aspect-[16/10] bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center relative overflow-hidden">
+    {image ? (
+      <img src={image} alt={title} class="w-full h-full object-cover" loading="lazy" />
+    ) : (
+      <span class="text-5xl opacity-60 group-hover:scale-110 transition-transform duration-300">🎲</span>
+    )}
+  </div>
+
+  <div class="p-4">
+    <!-- Title -->
+    <h3 class="font-bold text-gray-900 group-hover:text-primary-600 transition-colors mb-1.5 text-lg">
+      {title}
+    </h3>
+
+    <!-- Description -->
+    <p class="text-sm text-gray-500 line-clamp-2 mb-3">{description}</p>
+
+    <!-- Meta info -->
+    <div class="flex flex-wrap items-center gap-2 text-xs text-gray-400 mb-3">
+      <span class="flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        {playersLabel}
+      </span>
+      <span class="text-gray-200">|</span>
+      <span class="flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        {duration}
+      </span>
+      <span class="text-gray-200">|</span>
+      <span>{age}+ ans</span>
+    </div>
+
+    <!-- Tags -->
+    <div class="flex flex-wrap gap-1.5">
+      <span class={`badge-difficulty-${difficulty}`}>{difficultyLabels[difficulty]}</span>
+      {categories.slice(0, 2).map((cat) => (
+        <span class="badge-category">{cat}</span>
+      ))}
+    </div>
+  </div>
+</a>

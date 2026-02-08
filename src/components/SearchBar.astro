@@ -1,0 +1,149 @@
+---
+interface Props {
+  variant?: 'hero' | 'inline';
+}
+
+const { variant = 'hero' } = Astro.props;
+
+const isHero = variant === 'hero';
+---
+
+<div class={`search-container relative ${isHero ? 'max-w-xl mx-auto' : 'max-w-lg'}`}>
+  <div class="relative">
+    <svg
+      class={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isHero ? 'text-gray-400' : 'text-gray-300'}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+    <input
+      type="search"
+      id="search-input"
+      placeholder="Rechercher un jeu..."
+      autocomplete="off"
+      class:list={[
+        'w-full pl-12 pr-4 rounded-xl border-0 focus:outline-none focus:ring-2 transition-shadow',
+        isHero
+          ? 'py-4 text-base bg-white text-gray-900 shadow-lg focus:ring-primary-300 placeholder:text-gray-400'
+          : 'py-2.5 text-sm bg-white text-gray-900 border border-gray-200 focus:ring-primary-500 placeholder:text-gray-400',
+      ]}
+    />
+  </div>
+
+  <!-- Search results dropdown -->
+  <div
+    id="search-results"
+    class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 hidden"
+  >
+    <ul id="search-results-list" class="divide-y divide-gray-50 max-h-80 overflow-y-auto"></ul>
+    <div id="search-no-results" class="p-4 text-center text-sm text-gray-500 hidden">
+      Aucun jeu trouvé
+    </div>
+  </div>
+</div>
+
+<script>
+  import Fuse from 'fuse.js';
+
+  interface GameEntry {
+    title: string;
+    slug: string;
+    description: string;
+    categories: string[];
+    difficulty: string;
+  }
+
+  let fuse: Fuse<GameEntry> | null = null;
+  let searchIndex: GameEntry[] = [];
+
+  async function initSearch() {
+    if (fuse) return;
+    try {
+      const response = await fetch('/api/search-index.json');
+      searchIndex = await response.json();
+      fuse = new Fuse(searchIndex, {
+        keys: [
+          { name: 'title', weight: 2 },
+          { name: 'description', weight: 1 },
+          { name: 'categories', weight: 1.5 },
+        ],
+        threshold: 0.3,
+        includeScore: true,
+      });
+    } catch (e) {
+      console.error('Failed to load search index:', e);
+    }
+  }
+
+  const input = document.getElementById('search-input') as HTMLInputElement;
+  const resultsContainer = document.getElementById('search-results') as HTMLDivElement;
+  const resultsList = document.getElementById('search-results-list') as HTMLUListElement;
+  const noResults = document.getElementById('search-no-results') as HTMLDivElement;
+
+  let debounceTimer: ReturnType<typeof setTimeout>;
+
+  input?.addEventListener('focus', initSearch);
+
+  input?.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const query = input.value.trim();
+
+      if (!query || !fuse) {
+        resultsContainer.classList.add('hidden');
+        return;
+      }
+
+      const results = fuse.search(query, { limit: 6 });
+
+      if (results.length === 0) {
+        resultsList.innerHTML = '';
+        noResults.classList.remove('hidden');
+        resultsContainer.classList.remove('hidden');
+        return;
+      }
+
+      noResults.classList.add('hidden');
+      resultsList.innerHTML = results
+        .map(
+          (result) => `
+          <li>
+            <a href="/jeux/${result.item.slug}/" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+              <span class="text-2xl">🎲</span>
+              <div class="min-w-0">
+                <p class="font-medium text-gray-900 text-sm truncate">${result.item.title}</p>
+                <p class="text-xs text-gray-500 truncate">${result.item.description}</p>
+              </div>
+            </a>
+          </li>
+        `
+        )
+        .join('');
+
+      resultsContainer.classList.remove('hidden');
+    }, 200);
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.search-container')) {
+      resultsContainer?.classList.add('hidden');
+    }
+  });
+
+  // Close on Escape
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      resultsContainer?.classList.add('hidden');
+      input.blur();
+    }
+  });
+</script>

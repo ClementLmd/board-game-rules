@@ -1,0 +1,188 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import GameCard from '../../components/GameCard.astro';
+import SearchBar from '../../components/SearchBar.astro';
+import { getCollection } from 'astro:content';
+
+const allGames = await getCollection('games');
+const games = allGames.sort((a, b) => a.data.title.localeCompare(b.data.title, 'fr'));
+
+// Collect unique categories and difficulties for filters
+const allCategories = [...new Set(games.flatMap((game) => game.data.categories))].sort();
+const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
+---
+
+<BaseLayout
+  title="Tous les jeux - Règles du Jeu"
+  description="Parcourez toutes les règles de jeux de société disponibles en français."
+>
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <!-- Page header -->
+    <div class="mb-8">
+      <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Tous les jeux</h1>
+      <p class="text-gray-500">
+        {games.length} {games.length > 1 ? 'jeux disponibles' : 'jeu disponible'}
+      </p>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="mb-8 space-y-4">
+      <SearchBar variant="inline" />
+
+      <!-- Filters -->
+      <div id="filters" class="flex flex-wrap gap-3">
+        <!-- Difficulty filter -->
+        <div class="relative">
+          <select
+            id="filter-difficulty"
+            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
+          >
+            <option value="">Toutes les difficultés</option>
+            {allDifficulties.map((d) => (
+              <option value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+            ))}
+          </select>
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+
+        <!-- Category filter -->
+        <div class="relative">
+          <select
+            id="filter-category"
+            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
+          >
+            <option value="">Toutes les catégories</option>
+            {allCategories.map((cat) => (
+              <option value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+            ))}
+          </select>
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+
+        <!-- Players filter -->
+        <div class="relative">
+          <select
+            id="filter-players"
+            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
+          >
+            <option value="">Nombre de joueurs</option>
+            <option value="2">2 joueurs</option>
+            <option value="3">3 joueurs</option>
+            <option value="4">4 joueurs</option>
+            <option value="5">5 joueurs</option>
+            <option value="6">6+ joueurs</option>
+          </select>
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+
+        <!-- Reset -->
+        <button
+          id="filter-reset"
+          class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors hidden"
+        >
+          Réinitialiser
+        </button>
+      </div>
+    </div>
+
+    <!-- Game Grid -->
+    <div id="games-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {games.map((game) => (
+        <div
+          class="game-item"
+          data-title={game.data.title.toLowerCase()}
+          data-categories={game.data.categories.join(',')}
+          data-difficulty={game.data.difficulty}
+          data-players-min={game.data.players.min}
+          data-players-max={game.data.players.max}
+        >
+          <GameCard
+            title={game.data.title}
+            slug={game.data.slug}
+            description={game.data.description}
+            players={game.data.players}
+            duration={game.data.duration}
+            age={game.data.age}
+            categories={game.data.categories}
+            difficulty={game.data.difficulty}
+            image={game.data.image}
+          />
+        </div>
+      ))}
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="hidden py-16 text-center">
+      <span class="text-5xl mb-4 block">🔍</span>
+      <h3 class="text-lg font-semibold text-gray-900 mb-1">Aucun jeu trouvé</h3>
+      <p class="text-gray-500 text-sm">Essayez de modifier vos filtres ou votre recherche.</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  const difficultyFilter = document.getElementById('filter-difficulty') as HTMLSelectElement;
+  const categoryFilter = document.getElementById('filter-category') as HTMLSelectElement;
+  const playersFilter = document.getElementById('filter-players') as HTMLSelectElement;
+  const resetBtn = document.getElementById('filter-reset') as HTMLButtonElement;
+  const gamesGrid = document.getElementById('games-grid') as HTMLDivElement;
+  const emptyState = document.getElementById('empty-state') as HTMLDivElement;
+  const gameItems = document.querySelectorAll('.game-item') as NodeListOf<HTMLElement>;
+
+  function applyFilters() {
+    const difficulty = difficultyFilter.value;
+    const category = categoryFilter.value;
+    const players = playersFilter.value;
+
+    let visibleCount = 0;
+
+    gameItems.forEach((item) => {
+      let show = true;
+
+      if (difficulty && item.dataset.difficulty !== difficulty) {
+        show = false;
+      }
+
+      if (category && !item.dataset.categories?.split(',').includes(category)) {
+        show = false;
+      }
+
+      if (players) {
+        const num = parseInt(players);
+        const min = parseInt(item.dataset.playersMin || '0');
+        const max = parseInt(item.dataset.playersMax || '99');
+        if (num < min || num > max) {
+          show = false;
+        }
+      }
+
+      item.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    });
+
+    // Toggle empty state
+    gamesGrid.classList.toggle('hidden', visibleCount === 0);
+    emptyState.classList.toggle('hidden', visibleCount > 0);
+
+    // Toggle reset button
+    const hasFilters = difficulty || category || players;
+    resetBtn.classList.toggle('hidden', !hasFilters);
+  }
+
+  difficultyFilter.addEventListener('change', applyFilters);
+  categoryFilter.addEventListener('change', applyFilters);
+  playersFilter.addEventListener('change', applyFilters);
+
+  resetBtn.addEventListener('click', () => {
+    difficultyFilter.value = '';
+    categoryFilter.value = '';
+    playersFilter.value = '';
+    applyFilters();
+  });
+</script>

@@ -1,0 +1,45 @@
+---
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="bg-white border-t border-gray-100 mt-16">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Brand -->
+      <div>
+        <a href="/" class="flex items-center gap-2 mb-3">
+          <span class="text-2xl">🎲</span>
+          <span class="font-bold text-lg text-gray-900">Règles du Jeu</span>
+        </a>
+        <p class="text-sm text-gray-500 leading-relaxed">
+          Retrouvez les règles de vos jeux de société préférés, expliquées simplement en français.
+        </p>
+      </div>
+
+      <!-- Links -->
+      <div>
+        <h3 class="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">Navigation</h3>
+        <ul class="space-y-2">
+          <li><a href="/" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">Accueil</a></li>
+          <li><a href="/jeux/" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">Tous les jeux</a></li>
+          <li><a href="/a-propos/" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">A propos</a></li>
+        </ul>
+      </div>
+
+      <!-- Legal -->
+      <div>
+        <h3 class="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">Informations</h3>
+        <p class="text-xs text-gray-400 leading-relaxed">
+          Les règles présentées sur ce site sont des résumés originaux rédigés dans un but informatif.
+          Pour les règles officielles complètes, veuillez consulter les éditeurs respectifs.
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-8 pt-6 border-t border-gray-100 text-center">
+      <p class="text-xs text-gray-400">
+        &copy; {currentYear} Règles du Jeu. Tous droits réservés.
+      </p>
+    </div>
+  </div>
+</footer>
