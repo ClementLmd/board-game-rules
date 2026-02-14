@@ -48,4 +48,4 @@ Puis rédiger les règles en Markdown en dessous.
 
 ## Déploiement
 
-Le site est déployé sur [Vercel](https://vercel.com). Chaque push sur `main` déclenche un déploiement automatique.
+Le site est déployé sur [Vercel](https://vercel.com).
