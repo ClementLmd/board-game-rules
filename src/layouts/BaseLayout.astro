@@ -63,5 +63,11 @@ const ogImageUrl = new URL(ogImage, Astro.site).href;
       <slot />
     </main>
     <Footer />
+
+    <!-- Vercel Web Analytics (privacy-friendly, no tracking in dev) -->
+    <script>
+      import { inject } from '@vercel/analytics';
+      inject();
+    </script>
   </body>
 </html>

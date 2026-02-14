@@ -1,15 +1,15 @@
-# Regles du Jeu
+# Règles du Jeu
 
-Site statique en francais qui regroupe les regles de jeux de societe, expliquees simplement.
+Site statique en français qui regroupe les règles de jeux de société, expliquées simplement.
 
 Construit avec [Astro](https://astro.build), [Tailwind CSS](https://tailwindcss.com) et [Fuse.js](https://www.fusejs.io/) pour la recherche.
 
-## Fonctionnalites
+## Fonctionnalités
 
-- Fiches de regles redigees en Markdown avec metadonnees (joueurs, duree, difficulte, categories)
-- Recherche instantanee cote client (Fuse.js)
-- Filtres par difficulte, categorie et nombre de joueurs
-- Pages par categorie generees automatiquement
+- Fiches de règles rédigées en Markdown avec métadonnées (joueurs, durée, difficulté, catégories)
+- Recherche instantanée côté client (Fuse.js)
+- Filtres par difficulté, catégorie et nombre de joueurs
+- Pages par catégorie générées automatiquement
 - Responsive (mobile-first)
 - SEO (meta tags, Open Graph, JSON-LD, sitemap)
 
@@ -19,16 +19,16 @@ Catan, Citadelles, Dixit, Les Loups-Garous de Thiercelieux, Skull King, Uno
 
 ## Commandes
 
-| Commande         | Action                                    |
-| :--------------- | :---------------------------------------- |
-| `pnpm install`   | Installer les dependances                 |
-| `pnpm dev`       | Lancer le serveur de dev (`localhost:4321`)|
-| `pnpm build`     | Generer le site statique dans `./dist/`   |
-| `pnpm preview`   | Previsualiser le build en local           |
+| Commande       | Action                                      |
+| :------------- | :------------------------------------------ |
+| `pnpm install` | Installer les dépendances                   |
+| `pnpm dev`     | Lancer le serveur de dev (`localhost:4321`) |
+| `pnpm build`   | Générer le site statique dans `./dist/`     |
+| `pnpm preview` | Prévisualiser le build en local             |
 
 ## Ajouter un jeu
 
-Creer un fichier Markdown dans `src/content/games/` avec le frontmatter suivant :
+Créer un fichier Markdown dans `src/content/games/` avec le frontmatter suivant :
 
 ```yaml
 ---
@@ -38,14 +38,14 @@ description: "Description courte du jeu"
 players: { min: 2, max: 6 }
 duration: "30-60 min"
 age: 10
-categories: ["strategie", "cartes"]
-difficulty: "facile"  # facile | moyen | difficile
-officialRulesUrl: "https://..."  # optionnel
+categories: ["stratégie", "cartes"]
+difficulty: "facile" # facile | moyen | difficile
+officialRulesUrl: "https://..." # optionnel
 ---
 ```
 
-Puis rediger les regles en Markdown en dessous.
+Puis rédiger les règles en Markdown en dessous.
 
-## Deploiement
+## Déploiement
 
-Le site est deploye sur [Vercel](https://vercel.com). Chaque push sur `main` declenche un deploiement automatique.
+Le site est déployé sur [Vercel](https://vercel.com).
