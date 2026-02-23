@@ -161,8 +161,10 @@ export interface NightCallStep {
   action: string;
   /** How many players should have this role (from roleConfig). Only for non-amoureux steps. */
   expectedCount?: number;
-  /** How many players are currently assigned to this role. */
+  /** How many alive players are assigned to this role (for display). */
   assignedCount?: number;
+  /** Total assigned (alive + dead). When equals expectedCount, role cannot be reassigned. */
+  totalAssignedCount?: number;
 }
 
 /** Returns night call steps for the game master, in order, filtered by roleConfig and night number.
@@ -174,12 +176,17 @@ export function getNightCallOrder(
   roleConfig: RoleConfig
 ): NightCallStep[] {
   const aliveByRoleId = new Map<string, Player[]>();
+  const allByRoleId = new Map<string, Player[]>();
   const playerById = new Map(players.map((p) => [p.id, p]));
   for (const p of players) {
-    if (!p.alive || !p.role) continue;
+    if (!p.role) continue;
     const id = p.role.id;
-    if (!aliveByRoleId.has(id)) aliveByRoleId.set(id, []);
-    aliveByRoleId.get(id)!.push(p);
+    if (!allByRoleId.has(id)) allByRoleId.set(id, []);
+    allByRoleId.get(id)!.push(p);
+    if (p.alive) {
+      if (!aliveByRoleId.has(id)) aliveByRoleId.set(id, []);
+      aliveByRoleId.get(id)!.push(p);
+    }
   }
   const steps: NightCallStep[] = [];
   const isNight1 = night === 1;
@@ -200,13 +207,17 @@ export function getNightCallOrder(
     const count = roleConfig[call.roleId] ?? 0;
     if (count > 0) {
       const rolePlayers = aliveByRoleId.get(call.roleId) ?? [];
+      const allRolePlayers = allByRoleId.get(call.roleId) ?? [];
       steps.push({
         key: call.roleId,
         label: call.label,
-        playerNames: rolePlayers.map((p) => p.name),
+        playerNames: rolePlayers.length > 0
+          ? rolePlayers.map((p) => p.name)
+          : allRolePlayers.map((p) => `${p.name} (mort)`),
         action: call.action,
         expectedCount: count,
         assignedCount: rolePlayers.length,
+        totalAssignedCount: allRolePlayers.length,
       });
     }
   }

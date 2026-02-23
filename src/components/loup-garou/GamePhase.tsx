@@ -368,7 +368,7 @@ function NightCallRow({
       <div className="flex flex-shrink-0 items-center gap-2">
         {onAssignPlayers &&
           step.expectedCount != null &&
-          (step.assignedCount ?? 0) < step.expectedCount && (
+          (step.totalAssignedCount ?? 0) < step.expectedCount && (
             <button
               type="button"
               onClick={(e) => {
