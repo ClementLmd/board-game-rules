@@ -88,17 +88,17 @@ export function RoleAssignment({
 
   return (
     <section className="space-y-5">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
           Attribution des rôles
         </h2>
-        <p className="mb-4 text-sm text-gray-600">
+        <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
           Répartissez les rôles au hasard ou attribuez-les manuellement. Chaque joueur peut voir sa carte individuellement.
         </p>
         <button
           type="button"
           onClick={handleRandomAssign}
-          className="mb-6 min-h-[44px] w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white active:bg-primary-700 sm:w-auto"
+          className="mb-6 min-h-[44px] w-full rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white active:bg-primary-700 dark:bg-red-600 dark:active:bg-red-700 sm:w-auto"
         >
           Répartir au hasard
         </button>
@@ -107,17 +107,17 @@ export function RoleAssignment({
           {players.map((player) => (
             <li
               key={player.id}
-              className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+              className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-gray-900">{player.name}</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{player.name}</span>
                 <div className="flex flex-wrap items-center gap-2">
                   {player.role ? (
                     <>
                       <button
                         type="button"
                         onClick={() => toggleReveal(player.id)}
-                        className="min-h-[44px] rounded-xl bg-primary-100 px-3 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200"
+                        className="min-h-[44px] rounded-xl bg-primary-100 px-3 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
                       >
                         {revealed.has(player.id) ? 'Masquer' : 'Voir la carte'}
                       </button>
@@ -125,7 +125,7 @@ export function RoleAssignment({
                         <button
                           type="button"
                           onClick={() => setSelectedPlayerId(null)}
-                          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-600 active:bg-gray-50"
+                          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-600 active:bg-gray-50 dark:border-gray-600 dark:bg-gray-600 dark:text-gray-300 dark:active:bg-gray-500"
                         >
                           Annuler
                         </button>
@@ -133,7 +133,7 @@ export function RoleAssignment({
                         <button
                           type="button"
                           onClick={() => setSelectedPlayerId(player.id)}
-                          className="min-h-[44px] rounded-xl px-3 py-2.5 text-sm font-medium text-primary-600 active:bg-primary-100"
+                          className="min-h-[44px] rounded-xl px-3 py-2.5 text-sm font-medium text-primary-600 active:bg-primary-100 dark:text-red-400 dark:active:bg-red-900/50"
                         >
                           Changer
                         </button>
@@ -143,7 +143,7 @@ export function RoleAssignment({
                     <button
                       type="button"
                       onClick={() => setSelectedPlayerId(player.id)}
-                      className="min-h-[44px] rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 active:bg-gray-300"
+                      className="min-h-[44px] rounded-xl bg-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 active:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:active:bg-gray-500"
                     >
                       Attribuer un rôle
                     </button>
@@ -153,14 +153,14 @@ export function RoleAssignment({
 
               {revealed.has(player.id) && player.role && (
                 <div
-                  className="mt-3 rounded-xl border-2 border-primary-200 bg-white p-4"
+                  className="mt-3 rounded-xl border-2 border-primary-200 bg-white p-4 dark:border-red-800 dark:bg-gray-800"
                   role="region"
                   aria-label={`Carte de ${player.name}`}
                 >
-                  <p className="font-semibold text-primary-800">
+                  <p className="font-semibold text-primary-800 dark:text-red-300">
                     {player.role.name}
                   </p>
-                  <p className="mt-1 text-sm text-gray-600">
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                     {player.role.description}
                   </p>
                 </div>
@@ -173,7 +173,7 @@ export function RoleAssignment({
                       key={role.id}
                       type="button"
                       onClick={() => handleAssignRole(player.id, role)}
-                      className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-left text-sm font-medium active:bg-primary-50"
+                      className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-left text-sm font-medium active:bg-primary-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
                     >
                       {role.name}
                     </button>
@@ -188,7 +188,7 @@ export function RoleAssignment({
           type="button"
           onClick={onContinue}
           disabled={!allAssigned}
-          className="mt-6 min-h-[48px] w-full rounded-xl bg-primary-600 py-3 text-base font-medium text-white active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-6 min-h-[48px] w-full rounded-xl bg-primary-600 py-3 text-base font-medium text-white active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-600 dark:active:bg-red-700"
         >
           Lancer la partie
         </button>

@@ -2,54 +2,21 @@
 const currentYear = new Date().getFullYear();
 ---
 
-<footer class="bg-white border-t border-gray-100 mt-16">
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <!-- Brand -->
-      <div>
-        <a href="/" class="flex items-center gap-2 mb-3">
-          <span class="text-2xl">🎲</span>
-          <span class="font-bold text-lg text-gray-900">Règles du Jeu</span>
-        </a>
-        <p class="text-sm text-gray-500 leading-relaxed">
-          Retrouvez les règles de vos jeux de société préférés, expliquées simplement en français.
-        </p>
-      </div>
-
-      <!-- Links -->
-      <div>
-        <h3 class="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">Navigation</h3>
-        <nav aria-label="Navigation du pied de page">
-          <ul class="space-y-2">
-            <li><a href="/" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">Accueil</a></li>
-            <li><a href="/jeux/" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">Tous les jeux</a></li>
-            <li><a href="/a-propos/" class="text-sm text-gray-500 hover:text-primary-600 transition-colors">A propos</a></li>
-            <li>
-              <a href="/rss.xml" class="text-sm text-gray-500 hover:text-primary-600 transition-colors inline-flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6.18 15.64a2.18 2.18 0 010 4.36 2.18 2.18 0 010-4.36zM4 4.44A15.56 15.56 0 0119.56 20h-2.83A12.73 12.73 0 004 7.27V4.44zm0 5.66a9.9 9.9 0 019.9 9.9h-2.83A7.07 7.07 0 004 12.93V10.1z"/>
-                </svg>
-                Flux RSS
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </div>
-
-      <!-- Legal -->
-      <div>
-        <h3 class="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">Informations</h3>
-        <p class="text-xs text-gray-400 leading-relaxed">
-          Les règles présentées sur ce site sont des résumés originaux rédigés dans un but informatif.
-          Pour les règles officielles complètes, veuillez consulter les éditeurs respectifs.
-        </p>
-      </div>
+<footer class="bg-white border-t border-gray-100 mt-12">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-between sm:items-center">
+      <a href="/" class="flex items-center gap-2">
+        <span class="text-xl">🎲</span>
+        <span class="font-bold text-gray-900">Règles du Jeu</span>
+      </a>
+      <nav aria-label="Pied de page" class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-gray-500">
+        <a href="/" class="hover:text-primary-600 transition-colors">Accueil</a>
+        <a href="/jeux/" class="hover:text-primary-600 transition-colors">Jeux</a>
+        <a href="/a-propos/" class="hover:text-primary-600 transition-colors">À propos</a>
+      </nav>
     </div>
-
-    <div class="mt-8 pt-6 border-t border-gray-100 text-center">
-      <p class="text-xs text-gray-400">
-        &copy; {currentYear} Règles du Jeu. Tous droits réservés.
-      </p>
-    </div>
+    <p class="mt-4 text-center text-xs text-gray-400 sm:text-left">
+      &copy; {currentYear} Règles du Jeu
+    </p>
   </div>
 </footer>
