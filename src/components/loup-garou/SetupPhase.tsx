@@ -34,8 +34,8 @@ export function SetupPhase({
   const tooMany = players.length > MAX_PLAYERS;
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
-      <h2 className="mb-4 text-lg font-semibold text-gray-900">
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+      <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
         Joueurs ({players.length} / {MIN_PLAYERS}–{MAX_PLAYERS})
       </h2>
 
@@ -45,24 +45,24 @@ export function SetupPhase({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Nom du joueur"
-          className="min-h-[44px] flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-base text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          className="min-h-[44px] flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-base text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-red-500 dark:focus:ring-red-500/30"
           aria-label="Nom du joueur"
         />
         <button
           type="submit"
-          className="min-h-[44px] flex-shrink-0 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white active:bg-primary-700"
+          className="min-h-[44px] flex-shrink-0 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white active:bg-primary-700 dark:bg-red-600 dark:active:bg-red-700"
         >
           Ajouter
         </button>
       </form>
 
       {tooFew && (
-        <p className="mb-4 text-sm text-amber-700">
+        <p className="mb-4 text-sm text-amber-700 dark:text-amber-400">
           Il faut au moins {MIN_PLAYERS} joueurs pour une partie.
         </p>
       )}
       {tooMany && (
-        <p className="mb-4 text-sm text-red-700">
+        <p className="mb-4 text-sm text-red-700 dark:text-red-400">
           Maximum {MAX_PLAYERS} joueurs.
         </p>
       )}
@@ -71,13 +71,13 @@ export function SetupPhase({
         {players.map((p) => (
           <li
             key={p.id}
-            className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
           >
-            <span className="font-medium text-gray-900">{p.name}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
             <button
               type="button"
               onClick={() => onRemovePlayer(p.id)}
-              className="min-h-[44px] min-w-[44px] rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 active:bg-red-100"
+              className="min-h-[44px] min-w-[44px] rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 active:bg-red-100 dark:text-red-400 dark:active:bg-red-900/50"
               aria-label={`Retirer ${p.name}`}
             >
               Retirer
@@ -90,7 +90,7 @@ export function SetupPhase({
         type="button"
         onClick={onContinue}
         disabled={!canContinue}
-        className="min-h-[48px] w-full rounded-xl bg-primary-600 py-3 text-base font-medium text-white active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-h-[48px] w-full rounded-xl bg-primary-600 py-3 text-base font-medium text-white active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-600 dark:active:bg-red-700"
       >
         Attribuer les rôles
       </button>

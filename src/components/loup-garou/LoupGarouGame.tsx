@@ -180,15 +180,15 @@ export function LoupGarouGame() {
   const canUndo = undoCount > 0;
 
   return (
-    <div className="mx-auto min-h-screen max-w-2xl space-y-5 p-4 pb-8">
+    <div className="mx-auto max-w-2xl space-y-5 p-4 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 sm:text-2xl">
           Maître du jeu — Loup-Garou
         </h1>
         <button
           type="button"
           onClick={newGame}
-          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm active:bg-gray-50"
+          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm active:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:active:bg-gray-700"
         >
           Nouvelle partie
         </button>

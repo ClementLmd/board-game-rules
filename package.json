@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@astrojs/react": "^4.1.0",
-    "@astrojs/rss": "^4.0.15",
     "@astrojs/sitemap": "^3.7.0",
     "@astrojs/tailwind": "^6.0.2",
     "@tailwindcss/typography": "^0.5.19",
