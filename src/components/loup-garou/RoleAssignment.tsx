@@ -104,13 +104,15 @@ export function RoleAssignment({
         </button>
 
         <ul className="space-y-3">
-          {players.map((player) => (
+          {players.map((player, i) => (
             <li
               key={player.id}
               className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-gray-900 dark:text-gray-100">{player.name}</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {i + 1}. {player.name}
+                </span>
                 <div className="flex flex-wrap items-center gap-2">
                   {player.role ? (
                     <>

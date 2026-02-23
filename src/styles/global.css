@@ -9,6 +9,11 @@
     scroll-behavior: smooth;
   }
 
+  /* TOC / anchor targets: leave space for the sticky header so the heading stays visible */
+  main article [id] {
+    scroll-margin-top: 5rem; /* header h-16 (4rem) + small gap */
+  }
+
   body {
     @apply bg-warm-50 text-gray-800 antialiased;
   }

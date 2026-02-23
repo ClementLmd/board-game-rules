@@ -68,12 +68,14 @@ export function SetupPhase({
       )}
 
       <ul className="mb-6 space-y-2">
-        {players.map((p) => (
+        {players.map((p, i) => (
           <li
             key={p.id}
             className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-700"
           >
-            <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">
+              {i + 1}. {p.name}
+            </span>
             <button
               type="button"
               onClick={() => onRemovePlayer(p.id)}

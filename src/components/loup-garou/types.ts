@@ -83,7 +83,7 @@ export const ROLES: Role[] = [
   },
 ];
 
-export const MIN_PLAYERS = 5;
+export const MIN_PLAYERS = 6;
 export const MAX_PLAYERS = 18;
 
 export const STORAGE_KEY = 'loup-garou-game-state';
