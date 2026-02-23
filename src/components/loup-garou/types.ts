@@ -39,6 +39,8 @@ export interface GameState {
   lovers: [string, string] | null;
   /** Log of deaths for recap: "night 1: X died; day 1: Y died" */
   deathLog: DeathLogEntry[];
+  /** Selected targets per step: key = `${night}-${stepKey}`, value = player IDs or ["__none__"] for loup-blanc */
+  stepTargets: Record<string, string[]>;
 }
 
 export const ROLES: Role[] = [

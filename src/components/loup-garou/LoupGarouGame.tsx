@@ -7,7 +7,7 @@ import { GamePhase } from './GamePhase';
 
 function getInitialState(): GameState {
   if (typeof window === 'undefined') {
-    return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [] };
+    return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [], stepTargets: {} };
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -27,6 +27,7 @@ function getInitialState(): GameState {
           roleConfig,
           gamePhase: parsed.gamePhase === 'day' ? 'day' : 'night',
           deathLog: Array.isArray(parsed.deathLog) ? parsed.deathLog : [],
+          stepTargets: parsed.stepTargets && typeof parsed.stepTargets === 'object' ? parsed.stepTargets : {},
           lovers: Array.isArray(parsed.lovers) && parsed.lovers.length === 2
             ? (parsed.lovers as [string, string])
             : null,
@@ -36,7 +37,7 @@ function getInitialState(): GameState {
   } catch {
     // ignore
   }
-  return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [] };
+  return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [], stepTargets: {} };
 }
 
 type Action =
@@ -49,6 +50,7 @@ type Action =
   | { type: 'assign_players_to_role'; roleId: string; playerIds: string[] }
   | { type: 'kill_player'; id: string }
   | { type: 'set_lovers'; pair: [string, string] }
+  | { type: 'set_step_target'; key: string; playerIds: string[] }
   | { type: 'night_to_day' }
   | { type: 'day_to_night' }
   | { type: 'replace_state'; state: GameState }
@@ -122,6 +124,11 @@ function gameReducer(state: GameState, action: Action): GameState {
     }
     case 'set_lovers':
       return { ...state, lovers: action.pair };
+    case 'set_step_target':
+      return {
+        ...state,
+        stepTargets: { ...state.stepTargets, [action.key]: action.playerIds },
+      };
     case 'night_to_day':
       return { ...state, gamePhase: 'day' };
     case 'day_to_night':
@@ -129,7 +136,7 @@ function gameReducer(state: GameState, action: Action): GameState {
     case 'replace_state':
       return action.state;
     case 'new_game':
-      return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [] };
+      return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [], stepTargets: {} };
     default:
       return state;
   }
@@ -185,6 +192,10 @@ export function LoupGarouGame() {
 
   const setLovers = useCallback((pair: [string, string]) => {
     dispatch({ type: 'set_lovers', pair });
+  }, []);
+
+  const setStepTarget = useCallback((key: string, playerIds: string[]) => {
+    dispatch({ type: 'set_step_target', key, playerIds });
   }, []);
 
   const killPlayer = useCallback((id: string) => {
@@ -265,6 +276,8 @@ export function LoupGarouGame() {
           onAssignPlayersToRole={assignPlayersToRole}
           onSetLovers={setLovers}
           onKill={killPlayer}
+          onSetStepTarget={setStepTarget}
+          stepTargets={state.stepTargets}
           onNightToDay={nightToDay}
           onDayToNight={dayToNight}
           onUndo={undo}

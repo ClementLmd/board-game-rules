@@ -14,6 +14,8 @@ interface GamePhaseProps {
   onAssignPlayersToRole: (roleId: string, playerIds: string[]) => void;
   onSetLovers: (pair: [string, string]) => void;
   onKill: (id: string) => void;
+  onSetStepTarget: (key: string, playerIds: string[]) => void;
+  stepTargets: Record<string, string[]>;
   onNightToDay: () => void;
   onDayToNight: () => void;
   onUndo: () => void;
@@ -32,12 +34,13 @@ export function GamePhase({
   onAssignPlayersToRole,
   onSetLovers,
   onKill,
+  onSetStepTarget,
+  stepTargets,
   onNightToDay,
   onDayToNight,
   onUndo,
   canUndo,
 }: GamePhaseProps) {
-  const [showLoversForm, setShowLoversForm] = useState(false);
   const [assignRoleStepKey, setAssignRoleStepKey] = useState<string | null>(null);
   const [editPlayerRoleId, setEditPlayerRoleId] = useState<string | null>(null);
   const [checkedStepIndices, setCheckedStepIndices] = useState<Set<number>>(new Set());
@@ -69,14 +72,9 @@ export function GamePhase({
   const handleLoversConfirm = useCallback(
     (pair: [string, string]) => {
       onSetLovers(pair);
-      setShowLoversForm(false);
     },
     [onSetLovers]
   );
-
-  const handleLoversCancel = useCallback(() => {
-    setShowLoversForm(false);
-  }, []);
 
   const nightDeaths = deathLog.filter((e) => e.phase === 'night' && e.number === night);
   const dayDeaths = deathLog.filter((e) => e.phase === 'day' && e.number === night);
@@ -151,12 +149,21 @@ export function GamePhase({
                 key={`${step.key}-${index}`}
                 step={step}
                 index={index}
+                night={night}
                 isChecked={checkedStepIndices.has(index)}
                 onToggleChecked={() => toggleStepChecked(index)}
+                onSetStepTarget={onSetStepTarget}
+                stepTargets={stepTargets}
                 isCupidonStep={step.key === 'cupidon'}
                 showLoversButton={showCupidonButton}
-                onOpenLoversForm={() => setShowLoversForm(true)}
+                cupidonLoversProps={
+                  showCupidonButton
+                    ? { players: alive, onConfirm: handleLoversConfirm }
+                    : undefined
+                }
                 onAssignPlayers={() => setAssignRoleStepKey(step.key)}
+                alivePlayers={alive}
+                players={players}
               />
             ))}
           </ol>
@@ -203,15 +210,6 @@ export function GamePhase({
           />
         );
       })()}
-
-      {/* Cupidon: set lovers form (opened via button next to Cupidon in night order) */}
-      {showLoversForm && (
-        <CupidonChoice
-          players={alive}
-          onConfirm={handleLoversConfirm}
-          onCancel={handleLoversCancel}
-        />
-      )}
 
       {/* Count */}
       <p className="text-center text-sm text-gray-600 dark:text-gray-400">
@@ -302,135 +300,256 @@ export function GamePhase({
   );
 }
 
+const ROLE_ACTION_LABELS: Record<string, string> = {
+  voyante: 'Qui la voyante a-t-elle regardé ?',
+  'loup-garou': 'Qui les loups ont-ils attaqué ?',
+  sorciere: 'Qui la sorcière a-t-elle ciblé ? (guérison ou mort)',
+  salvateur: 'Qui le salvateur protège-t-il ?',
+  'loup-blanc': 'Quel loup le loup blanc a-t-il éliminé ?',
+};
+
 interface NightCallRowProps {
   step: NightCallStep;
   index: number;
+  night: number;
   isChecked: boolean;
   onToggleChecked: () => void;
+  onSetStepTarget: (key: string, playerIds: string[]) => void;
+  stepTargets: Record<string, string[]>;
   isCupidonStep?: boolean;
   showLoversButton?: boolean;
-  onOpenLoversForm?: () => void;
+  cupidonLoversProps?: {
+    players: Player[];
+    onConfirm: (pair: [string, string]) => void;
+  };
   onAssignPlayers?: () => void;
+  alivePlayers: Player[];
+  players: Player[];
 }
+
+const STEP_TARGET_NONE = '__none__';
 
 function NightCallRow({
   step,
   index,
+  night,
   isChecked,
   onToggleChecked,
+  onSetStepTarget,
+  stepTargets,
   isCupidonStep,
   showLoversButton,
-  onOpenLoversForm,
+  cupidonLoversProps,
   onAssignPlayers,
+  alivePlayers,
+  players,
 }: NightCallRowProps) {
-  const [showInfo, setShowInfo] = useState(false);
+  const [showCard, setShowCard] = useState(false);
+  const [showLoversFormInCard, setShowLoversFormInCard] = useState(false);
+
+  useEffect(() => {
+    if (!showCard) setShowLoversFormInCard(false);
+  }, [showCard]);
+
   const num = index + 1;
+  const stepKey = `${night}-${step.key}`;
+  const targetIds = stepTargets[stepKey] ?? [];
+  const targetNames = targetIds
+    .filter((id) => id !== STEP_TARGET_NONE)
+    .map((id) => players.find((p) => p.id === id)?.name)
+    .filter(Boolean) as string[];
+  const targetDisplay = targetIds.includes(STEP_TARGET_NONE) ? 'Aucun' : targetNames.join(', ');
+
+  const actionLabel = ROLE_ACTION_LABELS[step.key];
+  const targets =
+    step.key === 'loup-blanc'
+      ? alivePlayers.filter((p) => p.role?.id === 'loup-garou' || p.role?.id === 'loup-blanc')
+      : alivePlayers;
+  const hasTargets = actionLabel && (targets.length > 0 || step.key === 'loup-blanc');
 
   return (
-    <li
-      role="button"
-      tabIndex={0}
-      onClick={onToggleChecked}
-      onKeyDown={(e) => e.key === 'Enter' && onToggleChecked()}
-      className="relative flex cursor-pointer flex-wrap items-center gap-3 px-4 py-4 sm:flex-nowrap active:bg-gray-50 dark:active:bg-gray-700/50"
-      aria-label={`Marquer « ${step.label} » comme fait`}
-    >
-      <span
-        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-          isChecked
-            ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
-            : 'bg-primary-100 text-primary-700 dark:bg-red-900/50 dark:text-red-300'
-        }`}
-        aria-hidden
+    <>
+      <li
+        role="button"
+        tabIndex={0}
+        onClick={() => setShowCard(true)}
+        onKeyDown={(e) => e.key === 'Enter' && setShowCard(true)}
+        className="relative flex cursor-pointer flex-wrap items-center gap-3 px-4 py-4 sm:flex-nowrap active:bg-gray-50 dark:active:bg-gray-700/50"
+        aria-label={`Voir les détails de « ${step.label} »`}
       >
-        {num}
-      </span>
+        <span
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+            isChecked
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+              : 'bg-primary-100 text-primary-700 dark:bg-red-900/50 dark:text-red-300'
+          }`}
+          aria-hidden
+        >
+          {num}
+        </span>
 
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-gray-900 dark:text-gray-100">{step.label}</p>
-        {step.playerNames.length > 0 ? (
-          <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-            {step.playerNames.join(', ')}
-          </p>
-        ) : step.expectedCount != null && step.expectedCount > 0 && (
-          <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400">
-            À assigner ({step.assignedCount ?? 0}/{step.expectedCount})
-          </p>
-        )}
-        {isCupidonStep && showLoversButton && onOpenLoversForm && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenLoversForm();
-            }}
-            className="mt-2 inline-block rounded-lg bg-primary-100 px-3 py-1.5 text-xs font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
-          >
-            Désigner les amoureux
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-shrink-0 items-center gap-2">
-        {onAssignPlayers &&
-          step.expectedCount != null &&
-          (step.totalAssignedCount ?? 0) < step.expectedCount && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAssignPlayers();
-              }}
-              className="min-h-[44px] flex-shrink-0 rounded-xl bg-primary-100 px-4 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
-            >
-              Assigner
-            </button>
-          )}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowInfo((v) => !v);
-            }}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200 dark:bg-gray-600 dark:text-gray-300 dark:active:bg-gray-500"
-            aria-label="Voir les actions de ce rôle"
-            aria-expanded={showInfo}
-          >
-            <span className="text-sm font-bold">i</span>
-          </button>
-          {showInfo && (
-            <>
-              <div
-                className="fixed inset-0 z-20"
-                aria-hidden
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowInfo(false);
-                }}
-              />
-              <div
-                className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-600 dark:bg-gray-800"
-                role="tooltip"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <p className="text-sm text-gray-700 dark:text-gray-300">{step.action}</p>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowInfo(false);
-                  }}
-                  className="mt-3 text-sm font-medium text-primary-600 dark:text-red-400"
-                >
-                  Fermer
-                </button>
-              </div>
-            </>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gray-900 dark:text-gray-100">{step.label}</p>
+          {step.playerNames.length > 0 ? (
+            <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+              {step.playerNames.join(', ')}
+            </p>
+          ) : step.expectedCount != null && step.expectedCount > 0 && (
+            <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400">
+              À assigner ({step.assignedCount ?? 0}/{step.expectedCount})
+            </p>
           )}
         </div>
-      </div>
-    </li>
+
+        <div className="flex flex-shrink-0 items-center gap-2">
+          {targetDisplay && (
+            <span className="text-right text-sm font-medium text-gray-600 dark:text-gray-400">
+              → {targetDisplay}
+            </span>
+          )}
+          {onAssignPlayers &&
+            step.expectedCount != null &&
+            (step.totalAssignedCount ?? 0) < step.expectedCount && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAssignPlayers();
+                }}
+                className="min-h-[44px] flex-shrink-0 rounded-xl bg-primary-100 px-4 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
+              >
+                Assigner
+              </button>
+            )}
+        </div>
+      </li>
+
+      {showCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50"
+            aria-hidden
+            onClick={() => setShowCard(false)}
+          />
+          <div
+            className="relative z-10 w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-600 dark:bg-gray-800"
+            role="dialog"
+            aria-labelledby="call-card-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {showLoversFormInCard && isCupidonStep && cupidonLoversProps ? (
+              <CupidonChoice
+                players={cupidonLoversProps.players}
+                onConfirm={(pair) => {
+                  cupidonLoversProps.onConfirm(pair);
+                  setShowCard(false);
+                }}
+                onCancel={() => setShowLoversFormInCard(false)}
+              />
+            ) : (
+              <>
+                <h3 id="call-card-title" className="mb-3 text-lg font-bold text-gray-900 dark:text-gray-100">
+                  {step.label}
+                </h3>
+                {step.playerNames.length > 0 && (
+                  <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                    {step.playerNames.join(', ')}
+                  </p>
+                )}
+                <div className="mb-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-700/50">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Actions à effectuer
+                  </p>
+                  <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                    {step.action}
+                  </p>
+                </div>
+                {hasTargets && (
+                  <div className="mb-6">
+                    <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {actionLabel}
+                    </p>
+                    <ul className="flex flex-wrap gap-2">
+                      {step.key === 'loup-blanc' && (
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSetStepTarget(stepKey, [STEP_TARGET_NONE]);
+                              onToggleChecked();
+                              setShowCard(false);
+                            }}
+                            className="min-h-[40px] rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                          >
+                            Aucun
+                          </button>
+                        </li>
+                      )}
+                      {targets.map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSetStepTarget(stepKey, [p.id]);
+                              onToggleChecked();
+                              setShowCard(false);
+                            }}
+                            className="min-h-[40px] rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                          >
+                            {p.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {!hasTargets && (step.key === 'amoureux' || step.key === 'cupidon') && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {step.key === 'amoureux'
+                        ? 'Les amoureux se réveillent et se reconnaissent.'
+                        : 'Cupidon désigne les deux amoureux.'}
+                    </p>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  {isCupidonStep && showLoversButton && cupidonLoversProps && (
+                    <button
+                      type="button"
+                      onClick={() => setShowLoversFormInCard(true)}
+                      className="min-h-[44px] rounded-xl bg-primary-100 px-4 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
+                    >
+                      Désigner les amoureux
+                    </button>
+                  )}
+                  {onAssignPlayers &&
+                    step.expectedCount != null &&
+                    (step.totalAssignedCount ?? 0) < step.expectedCount && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onAssignPlayers();
+                          setShowCard(false);
+                        }}
+                        className="min-h-[44px] rounded-xl bg-primary-100 px-4 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
+                      >
+                        Assigner
+                      </button>
+                    )}
+                  <button
+                    type="button"
+                    onClick={() => setShowCard(false)}
+                    className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 active:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
