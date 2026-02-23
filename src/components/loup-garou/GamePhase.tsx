@@ -111,20 +111,26 @@ export function GamePhase({
       </div>
 
       {/* Day: show night deaths */}
-      {gamePhase === 'day' && nightDeaths.length > 0 && (
+      {gamePhase === 'day' && (
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <h3 className="border-b border-gray-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-600 dark:text-gray-400">
-            Morts pendant la nuit {night}
+            {nightDeaths.length === 1 ? 'Mort' : 'Morts'} pendant la nuit {night}
           </h3>
-          <ul className="divide-y divide-gray-100 dark:divide-gray-600">
-            {nightDeaths.map((e) => (
-              <li key={e.playerId} className="px-4 py-3">
-                <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {playerById.get(e.playerId)?.name ?? '?'}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {nightDeaths.length > 0 ? (
+            <ul className="divide-y divide-gray-100 dark:divide-gray-600">
+              {nightDeaths.map((e) => (
+                <li key={e.playerId} className="px-4 py-3">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {playerById.get(e.playerId)?.name ?? '?'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              Personne n&apos;est mort pendant la nuit.
+            </p>
+          )}
         </div>
       )}
 

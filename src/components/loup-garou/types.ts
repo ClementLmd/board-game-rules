@@ -205,19 +205,19 @@ export function getNightCallOrder(
       continue;
     }
     const count = roleConfig[call.roleId] ?? 0;
-    if (count > 0) {
-      const rolePlayers = aliveByRoleId.get(call.roleId) ?? [];
-      const allRolePlayers = allByRoleId.get(call.roleId) ?? [];
+    const rolePlayers = aliveByRoleId.get(call.roleId) ?? [];
+    const totalAssigned = (allByRoleId.get(call.roleId) ?? []).length;
+    const hasAlivePlayer = rolePlayers.length > 0;
+    const canAssign = totalAssigned < count;
+    if (count > 0 && (hasAlivePlayer || (canAssign && totalAssigned === 0))) {
       steps.push({
         key: call.roleId,
         label: call.label,
-        playerNames: rolePlayers.length > 0
-          ? rolePlayers.map((p) => p.name)
-          : allRolePlayers.map((p) => `${p.name} (mort)`),
+        playerNames: rolePlayers.map((p) => p.name),
         action: call.action,
         expectedCount: count,
         assignedCount: rolePlayers.length,
-        totalAssignedCount: allRolePlayers.length,
+        totalAssignedCount: totalAssigned,
       });
     }
   }
