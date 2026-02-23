@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { LoupGarouGame } from '../../../components/loup-garou/LoupGarouGame';
+---
+
+<BaseLayout
+  title="Maître du jeu — Loup-Garou | Règles du Jeu"
+  description="Outil pour mener une partie de Loup-Garou : ajouter des joueurs, attribuer les rôles, gérer les éliminations."
+>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12 pb-[env(safe-area-inset-bottom)]">
+    <nav class="mb-6 text-sm" aria-label="Fil d'Ariane">
+      <ol class="flex items-center gap-2 text-gray-500">
+        <li><a href="/" class="hover:text-primary-600 transition-colors">Accueil</a></li>
+        <li><span class="text-gray-300">/</span></li>
+        <li><a href="/jeux/" class="hover:text-primary-600 transition-colors">Jeux</a></li>
+        <li><span class="text-gray-300">/</span></li>
+        <li><a href="/jeux/loup-garou/" class="hover:text-primary-600 transition-colors">Loup-Garou</a></li>
+        <li><span class="text-gray-300">/</span></li>
+        <li class="text-gray-900 font-medium">Partie</li>
+      </ol>
+    </nav>
+
+    <LoupGarouGame client:only="react" />
+  </div>
+</BaseLayout>
