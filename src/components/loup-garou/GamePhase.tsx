@@ -1,38 +1,58 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Player } from './types';
-import { getNightCallOrder, type NightCallStep } from './types';
+import type { Player, Role, RoleConfig } from './types';
+import { getNightCallOrder, ROLES, type DeathLogEntry, type NightCallStep } from './types';
 
 interface GamePhaseProps {
   players: Player[];
+  roleConfig: RoleConfig;
   night: number;
+  gamePhase: 'night' | 'day';
+  deathLog: DeathLogEntry[];
   lovers: [string, string] | null;
+  onAssignRole: (playerId: string, role: Role) => void;
+  onClearRole: (playerId: string) => void;
+  onAssignPlayersToRole: (roleId: string, playerIds: string[]) => void;
   onSetLovers: (pair: [string, string]) => void;
   onKill: (id: string) => void;
-  onNextNight: () => void;
+  onNightToDay: () => void;
+  onDayToNight: () => void;
   onUndo: () => void;
   canUndo: boolean;
 }
 
 export function GamePhase({
   players,
+  roleConfig,
   night,
+  gamePhase,
+  deathLog,
   lovers,
+  onAssignRole,
+  onClearRole,
+  onAssignPlayersToRole,
   onSetLovers,
   onKill,
-  onNextNight,
+  onNightToDay,
+  onDayToNight,
   onUndo,
   canUndo,
 }: GamePhaseProps) {
   const [showLoversForm, setShowLoversForm] = useState(false);
+  const [assignRoleStepKey, setAssignRoleStepKey] = useState<string | null>(null);
+  const [editPlayerRoleId, setEditPlayerRoleId] = useState<string | null>(null);
   const [checkedStepIndices, setCheckedStepIndices] = useState<Set<number>>(new Set());
 
   const alive = players.filter((p) => p.alive);
   const dead = players.filter((p) => !p.alive);
-  const nightSteps = getNightCallOrder(players, night, lovers);
+  const nightSteps = getNightCallOrder(players, night, lovers, roleConfig);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     setCheckedStepIndices(new Set());
-  }, [night]);
+  }, [night, gamePhase]);
 
   const toggleStepChecked = useCallback((index: number) => {
     setCheckedStepIndices((prev) => {
@@ -43,8 +63,8 @@ export function GamePhase({
     });
   }, []);
 
-  const hasCupidonAlive = alive.some((p) => p.role?.id === 'cupidon');
-  const showCupidonButton = night === 1 && !lovers && hasCupidonAlive;
+  const hasCupidonAssigned = alive.some((p) => p.role?.id === 'cupidon');
+  const showCupidonButton = night === 1 && !lovers && hasCupidonAssigned;
 
   const handleLoversConfirm = useCallback(
     (pair: [string, string]) => {
@@ -58,12 +78,16 @@ export function GamePhase({
     setShowLoversForm(false);
   }, []);
 
+  const nightDeaths = deathLog.filter((e) => e.phase === 'night' && e.number === night);
+  const dayDeaths = deathLog.filter((e) => e.phase === 'day' && e.number === night);
+  const playerById = new Map(players.map((p) => [p.id, p]));
+
   return (
     <section className="space-y-5">
-      {/* Night header: sticky on mobile for context */}
+      {/* Header: night or day */}
       <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-3 bg-warm-50/95 px-4 py-3 backdrop-blur dark:bg-gray-900/95 sm:static sm:mx-0 sm:rounded-xl sm:border sm:border-gray-200 sm:bg-white sm:dark:border-gray-700 sm:dark:bg-gray-800 sm:px-5 sm:py-4">
         <h2 className="text-xl font-bold text-gray-900 tabular-nums dark:text-gray-100">
-          Nuit {night}
+          {gamePhase === 'night' ? `Nuit ${night}` : `Jour ${night}`}
         </h2>
         <div className="flex items-center gap-2">
           {canUndo && (
@@ -78,15 +102,34 @@ export function GamePhase({
           )}
           <button
             type="button"
-            onClick={onNextNight}
+            onClick={gamePhase === 'night' ? onNightToDay : onDayToNight}
             className="min-h-[44px] rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm active:bg-primary-700 dark:bg-red-600 dark:active:bg-red-700"
           >
-            Nuit suivante
+            {gamePhase === 'night' ? 'Réveil du village' : 'Nuit suivante'}
           </button>
         </div>
       </div>
 
-      {/* Night call order: main feature, mobile-first list */}
+      {/* Day: show night deaths */}
+      {gamePhase === 'day' && nightDeaths.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <h3 className="border-b border-gray-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-600 dark:text-gray-400">
+            Morts pendant la nuit {night}
+          </h3>
+          <ul className="divide-y divide-gray-100 dark:divide-gray-600">
+            {nightDeaths.map((e) => (
+              <li key={e.playerId} className="px-4 py-3">
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                  {playerById.get(e.playerId)?.name ?? '?'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Night: call order */}
+      {gamePhase === 'night' && (
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <h3 className="border-b border-gray-100 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-600 dark:text-gray-400">
           Ordre des appels
@@ -107,11 +150,53 @@ export function GamePhase({
                 isCupidonStep={step.key === 'cupidon'}
                 showLoversButton={showCupidonButton}
                 onOpenLoversForm={() => setShowLoversForm(true)}
+                onAssignPlayers={() => setAssignRoleStepKey(step.key)}
               />
             ))}
           </ol>
         )}
       </div>
+      )}
+
+      {/* Assign players to role modal */}
+      {assignRoleStepKey && assignRoleStepKey !== 'amoureux' && (() => {
+        const role = ROLES.find((r) => r.id === assignRoleStepKey);
+        const step = nightSteps.find((s) => s.key === assignRoleStepKey);
+        return role && step && (
+        <RoleAssignModal
+          roleId={assignRoleStepKey}
+          role={role}
+          expectedCount={step.expectedCount ?? 1}
+          players={alive}
+          onConfirm={(playerIds) => {
+            onAssignPlayersToRole(assignRoleStepKey, playerIds);
+            setAssignRoleStepKey(null);
+          }}
+          onCancel={() => setAssignRoleStepKey(null)}
+        />
+        );
+      })()}
+
+      {/* Edit player role modal */}
+      {editPlayerRoleId && (() => {
+        const player = alive.find((p) => p.id === editPlayerRoleId);
+        return player && (
+          <EditPlayerRoleModal
+            player={player}
+            roleConfig={roleConfig}
+            allPlayers={players}
+            onAssign={(role) => {
+              onAssignRole(editPlayerRoleId, role);
+              setEditPlayerRoleId(null);
+            }}
+            onClear={() => {
+              onClearRole(editPlayerRoleId);
+              setEditPlayerRoleId(null);
+            }}
+            onCancel={() => setEditPlayerRoleId(null)}
+          />
+        );
+      })()}
 
       {/* Cupidon: set lovers form (opened via button next to Cupidon in night order) */}
       {showLoversForm && (
@@ -148,17 +233,34 @@ export function GamePhase({
           {alive.map((p) => (
             <li
               key={p.id}
-              className="flex items-center justify-between gap-3 px-4 py-3"
+              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
             >
-              <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
-              <button
-                type="button"
-                onClick={() => onKill(p.id)}
-                className="min-h-[44px] min-w-[44px] flex-shrink-0 rounded-xl bg-red-100 px-4 py-2.5 text-sm font-medium text-red-700 active:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:active:bg-red-800"
-                aria-label={`Éliminer ${p.name}`}
-              >
-                Éliminer
-              </button>
+              <div className="min-w-0 flex-1">
+                <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
+                {p.role && (
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                    ({p.role.name})
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditPlayerRoleId(p.id)}
+                  className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 active:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
+                  aria-label={`Modifier le rôle de ${p.name}`}
+                >
+                  {p.role ? 'Modifier' : 'Assigner'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onKill(p.id)}
+                  className="min-h-[44px] min-w-[44px] flex-shrink-0 rounded-xl bg-red-100 px-4 py-2.5 text-sm font-medium text-red-700 active:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:active:bg-red-800"
+                  aria-label={`Éliminer ${p.name}`}
+                >
+                  Éliminer
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -187,6 +289,9 @@ export function GamePhase({
           </ul>
         </div>
       )}
+
+      {/* Recap of previous nights/days */}
+      <NightRecap deathLog={deathLog} players={players} />
     </section>
   );
 }
@@ -199,6 +304,7 @@ interface NightCallRowProps {
   isCupidonStep?: boolean;
   showLoversButton?: boolean;
   onOpenLoversForm?: () => void;
+  onAssignPlayers?: () => void;
 }
 
 function NightCallRow({
@@ -209,43 +315,78 @@ function NightCallRow({
   isCupidonStep,
   showLoversButton,
   onOpenLoversForm,
+  onAssignPlayers,
 }: NightCallRowProps) {
   const [showInfo, setShowInfo] = useState(false);
   const num = index + 1;
 
   return (
-    <li className="relative flex flex-wrap items-center gap-3 px-4 py-4 sm:flex-nowrap">
+    <li
+      role="button"
+      tabIndex={0}
+      onClick={onToggleChecked}
+      onKeyDown={(e) => e.key === 'Enter' && onToggleChecked()}
+      className="relative flex cursor-pointer flex-wrap items-center gap-3 px-4 py-4 sm:flex-nowrap active:bg-gray-50 dark:active:bg-gray-700/50"
+      aria-label={`Marquer « ${step.label} » comme fait`}
+    >
       <span
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700 dark:bg-red-900/50 dark:text-red-300"
+        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+          isChecked
+            ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+            : 'bg-primary-100 text-primary-700 dark:bg-red-900/50 dark:text-red-300'
+        }`}
         aria-hidden
       >
         {num}
       </span>
 
-      <label className="flex min-h-[44px] flex-shrink-0 cursor-pointer items-center">
-        <input
-          type="checkbox"
-          checked={isChecked}
-          onChange={onToggleChecked}
-          className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-500 dark:bg-gray-700 dark:text-red-500 dark:focus:ring-red-500"
-          aria-label={`Marquer « ${step.label} » comme fait`}
-        />
-      </label>
-
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-gray-900 dark:text-gray-100">{step.label}</p>
-        {step.playerNames.length > 0 && (
+        {step.playerNames.length > 0 ? (
           <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
             {step.playerNames.join(', ')}
           </p>
+        ) : step.expectedCount != null && step.expectedCount > 0 && (
+          <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400">
+            À assigner ({step.assignedCount ?? 0}/{step.expectedCount})
+          </p>
+        )}
+        {isCupidonStep && showLoversButton && onOpenLoversForm && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenLoversForm();
+            }}
+            className="mt-2 inline-block rounded-lg bg-primary-100 px-3 py-1.5 text-xs font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
+          >
+            Désigner les amoureux
+          </button>
         )}
       </div>
 
       <div className="flex flex-shrink-0 items-center gap-2">
+        {onAssignPlayers &&
+          step.expectedCount != null &&
+          (step.assignedCount ?? 0) < step.expectedCount && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAssignPlayers();
+              }}
+              className="min-h-[44px] flex-shrink-0 rounded-xl bg-primary-100 px-4 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
+            >
+              Assigner
+            </button>
+          )}
         <div className="relative">
           <button
             type="button"
-            onClick={() => setShowInfo((v) => !v)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowInfo((v) => !v);
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600 active:bg-gray-200 dark:bg-gray-600 dark:text-gray-300 dark:active:bg-gray-500"
             aria-label="Voir les actions de ce rôle"
             aria-expanded={showInfo}
@@ -257,16 +398,23 @@ function NightCallRow({
               <div
                 className="fixed inset-0 z-20"
                 aria-hidden
-                onClick={() => setShowInfo(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowInfo(false);
+                }}
               />
               <div
                 className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-600 dark:bg-gray-800"
                 role="tooltip"
+                onClick={(e) => e.stopPropagation()}
               >
                 <p className="text-sm text-gray-700 dark:text-gray-300">{step.action}</p>
                 <button
                   type="button"
-                  onClick={() => setShowInfo(false)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowInfo(false);
+                  }}
                   className="mt-3 text-sm font-medium text-primary-600 dark:text-red-400"
                 >
                   Fermer
@@ -275,18 +423,226 @@ function NightCallRow({
             </>
           )}
         </div>
-
-        {isCupidonStep && showLoversButton && onOpenLoversForm && (
-          <button
-            type="button"
-            onClick={onOpenLoversForm}
-            className="min-h-[44px] flex-shrink-0 rounded-xl bg-primary-100 px-4 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
-          >
-            Désigner les amoureux
-          </button>
-        )}
       </div>
     </li>
+  );
+}
+
+interface RoleAssignModalProps {
+  roleId: string;
+  role: Role;
+  expectedCount: number;
+  players: Player[];
+  onConfirm: (playerIds: string[]) => void;
+  onCancel: () => void;
+}
+
+function RoleAssignModal({
+  roleId,
+  role,
+  expectedCount,
+  players,
+  onConfirm,
+  onCancel,
+}: RoleAssignModalProps) {
+  const availablePlayers = players.filter((p) => !p.role);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggle = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleConfirm = useCallback(() => {
+    if (selected.size === expectedCount) {
+      onConfirm([...selected]);
+    }
+  }, [selected, expectedCount, onConfirm]);
+
+  const canConfirm = selected.size === expectedCount;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="fixed inset-0 bg-black/50"
+        aria-hidden
+        onClick={onCancel}
+      />
+      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-600 dark:bg-gray-800 sm:p-6">
+        <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Assigner — {role.name}
+        </h3>
+        <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+          Sélectionnez exactement {expectedCount} joueur{expectedCount > 1 ? 's' : ''} sans rôle.
+        </p>
+        {availablePlayers.length === 0 && (
+          <p className="mb-4 text-sm text-amber-600 dark:text-amber-400">
+            Aucun joueur disponible (tous ont déjà un rôle).
+          </p>
+        )}
+        <ul className="mb-6 max-h-60 space-y-2 overflow-auto">
+          {availablePlayers.map((p) => (
+            <li key={p.id}>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-600">
+                <input
+                  type="checkbox"
+                  checked={selected.has(p.id)}
+                  onChange={() => toggle(p.id)}
+                  className="h-5 w-5 rounded border-gray-300 text-primary-600 dark:border-gray-500 dark:bg-gray-700 dark:text-red-500"
+                />
+                <span className="font-medium text-gray-900 dark:text-gray-100">{p.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+          Sélectionnés : {selected.size} / {expectedCount}
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-[48px] flex-1 rounded-xl border border-gray-200 bg-white py-3 text-base font-medium text-gray-700 active:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            className="min-h-[48px] flex-1 rounded-xl bg-primary-600 py-3 text-base font-medium text-white active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-600 dark:active:bg-red-700"
+          >
+            Valider
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface EditPlayerRoleModalProps {
+  player: Player;
+  roleConfig: RoleConfig;
+  allPlayers: Player[];
+  onAssign: (role: Role) => void;
+  onClear: () => void;
+  onCancel: () => void;
+}
+
+function EditPlayerRoleModal({
+  player,
+  roleConfig,
+  allPlayers,
+  onAssign,
+  onClear,
+  onCancel,
+}: EditPlayerRoleModalProps) {
+  const assignedByRoleId = new Map<string, number>();
+  for (const p of allPlayers) {
+    if (p.role) assignedByRoleId.set(p.role.id, (assignedByRoleId.get(p.role.id) ?? 0) + 1);
+  }
+  const rolesInGame = ROLES.filter((r) => {
+    const expected = roleConfig[r.id] ?? 0;
+    if (expected <= 0) return false;
+    const assigned = assignedByRoleId.get(r.id) ?? 0;
+    const playerHasRole = player.role?.id === r.id;
+    const available = expected - assigned + (playerHasRole ? 1 : 0);
+    return available > 0;
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="fixed inset-0 bg-black/50"
+        aria-hidden
+        onClick={onCancel}
+      />
+      <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-600 dark:bg-gray-800 sm:p-6">
+        <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Rôle — {player.name}
+        </h3>
+        <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+          Sélectionnez un rôle pour ce joueur.
+        </p>
+        <div className="mb-6 flex flex-wrap gap-2">
+          {rolesInGame.map((role) => (
+            <button
+              key={role.id}
+              type="button"
+              onClick={() => onAssign(role)}
+              className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium active:bg-primary-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
+            >
+              {role.name}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClear}
+            className="min-h-[48px] flex-1 rounded-xl border border-amber-200 bg-amber-50 py-3 text-base font-medium text-amber-800 active:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200 dark:active:bg-amber-900/50"
+          >
+            Retirer le rôle
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-[48px] flex-1 rounded-xl border border-gray-200 bg-white py-3 text-base font-medium text-gray-700 active:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface NightRecapProps {
+  deathLog: DeathLogEntry[];
+  players: Player[];
+}
+
+function NightRecap({ deathLog, players }: NightRecapProps) {
+  const playerById = new Map(players.map((p) => [p.id, p]));
+  const byPhaseAndNum = new Map<string, string[]>();
+  for (const e of deathLog) {
+    const key = `${e.phase}-${e.number}`;
+    if (!byPhaseAndNum.has(key)) byPhaseAndNum.set(key, []);
+    byPhaseAndNum.get(key)!.push(playerById.get(e.playerId)?.name ?? '?');
+  }
+  const entries: { phase: 'night' | 'day'; number: number }[] = [];
+  const seen = new Set<string>();
+  for (const e of deathLog) {
+    const key = `${e.phase}-${e.number}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      entries.push({ phase: e.phase, number: e.number });
+    }
+  }
+  entries.sort((a, b) => {
+    if (a.number !== b.number) return a.number - b.number;
+    return a.phase === 'night' ? -1 : 1;
+  });
+  const parts = entries.map(({ phase, number }) => {
+    const names = byPhaseAndNum.get(`${phase}-${number}`) ?? [];
+    const label = phase === 'night' ? `nuit ${number}` : `jour ${number}`;
+    const namesStr = names.length > 1 ? names.slice(0, -1).join(', ') + ' et ' + names.at(-1) : names[0] ?? '';
+    return `${label} : ${namesStr} ${names.length === 1 ? 'est mort' : 'sont morts'}`;
+  });
+  if (parts.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-800">
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        Récapitulatif
+      </h3>
+      <p className="text-sm text-gray-700 dark:text-gray-300">
+        {parts.join(' ; ')}
+      </p>
+    </div>
   );
 }
 

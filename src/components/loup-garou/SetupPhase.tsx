@@ -1,6 +1,13 @@
 import { useState, useCallback, type FormEvent } from 'react';
 import type { Player } from './types';
-import { MIN_PLAYERS, MAX_PLAYERS } from './types';
+import { MIN_PLAYERS, MAX_PLAYERS, MAX_PLAYER_NAME_LENGTH } from './types';
+
+/** Valid: letters, spaces, numbers, dash. No accents or special chars. */
+const VALID_NAME_REGEX = /^[a-zA-Z0-9\s\-]*$/;
+
+function isValidName(name: string): boolean {
+  return name.length > 0 && name.length <= MAX_PLAYER_NAME_LENGTH && VALID_NAME_REGEX.test(name);
+}
 
 interface SetupPhaseProps {
   players: Player[];
@@ -16,15 +23,27 @@ export function SetupPhase({
   onContinue,
 }: SetupPhaseProps) {
   const [input, setInput] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const filtered = raw.replace(/[^a-zA-Z0-9\s\-]/g, '').slice(0, MAX_PLAYER_NAME_LENGTH);
+    setInput(filtered);
+    setError(null);
+  }, []);
 
   const handleSubmit = useCallback(
     (e: FormEvent) => {
       e.preventDefault();
       const name = input.trim();
-      if (name) {
-        onAddPlayer(name);
-        setInput('');
+      if (!name) return;
+      if (!isValidName(name)) {
+        setError('Nom invalide (lettres, chiffres, tiret, max 15 caractères)');
+        return;
       }
+      setError(null);
+      onAddPlayer(name);
+      setInput('');
     },
     [input, onAddPlayer]
   );
@@ -43,10 +62,12 @@ export function SetupPhase({
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Nom du joueur"
+          onChange={handleChange}
+          placeholder="Nom (max 15 car., lettres et tiret)"
+          maxLength={MAX_PLAYER_NAME_LENGTH}
           className="min-h-[44px] flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-base text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-red-500 dark:focus:ring-red-500/30"
           aria-label="Nom du joueur"
+          aria-invalid={!!error}
         />
         <button
           type="submit"
@@ -55,6 +76,12 @@ export function SetupPhase({
           Ajouter
         </button>
       </form>
+
+      {error && (
+        <p className="mb-4 text-sm text-red-700 dark:text-red-400">
+          {error}
+        </p>
+      )}
 
       {tooFew && (
         <p className="mb-4 text-sm text-amber-700 dark:text-amber-400">
@@ -94,7 +121,7 @@ export function SetupPhase({
         disabled={!canContinue}
         className="min-h-[48px] w-full rounded-xl bg-primary-600 py-3 text-base font-medium text-white active:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-600 dark:active:bg-red-700"
       >
-        Attribuer les rôles
+        Choisir les rôles
       </button>
     </section>
   );

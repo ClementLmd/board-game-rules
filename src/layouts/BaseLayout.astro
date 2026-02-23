@@ -8,6 +8,7 @@ interface Props {
   description?: string;
   ogImage?: string;
   ogType?: string;
+  hideFooter?: boolean;
 }
 
 const {
@@ -15,6 +16,7 @@ const {
   description = 'Retrouvez les règles de vos jeux de société préférés, expliquées simplement en français.',
   ogImage = '/images/og-default.svg',
   ogType = 'website',
+  hideFooter = false,
 } = Astro.props;
 
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
@@ -61,7 +63,7 @@ const ogImageUrl = new URL(ogImage, Astro.site).href;
     <main id="main-content" class="flex-1" tabindex="-1">
       <slot />
     </main>
-    <Footer />
+    {!hideFooter && <Footer />}
 
     <!-- Vercel Web Analytics (privacy-friendly, no tracking in dev) -->
     <script>

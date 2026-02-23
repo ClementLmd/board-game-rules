@@ -1,21 +1,32 @@
 import { useCallback, useEffect, useRef, useReducer, useState } from 'react';
-import type { GameState, Player, Role } from './types';
-import { STORAGE_KEY } from './types';
+import type { GameState, Player, Role, RoleConfig } from './types';
+import { ROLES, STORAGE_KEY } from './types';
 import { SetupPhase } from './SetupPhase';
-import { RoleAssignment } from './RoleAssignment';
+import { RoleSelection } from './RoleSelection';
 import { GamePhase } from './GamePhase';
 
 function getInitialState(): GameState {
   if (typeof window === 'undefined') {
-    return { phase: 'setup', players: [], night: 1, lovers: null };
+    return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [] };
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as GameState;
       if (parsed.phase && Array.isArray(parsed.players)) {
+        let roleConfig: RoleConfig = parsed.roleConfig && typeof parsed.roleConfig === 'object' ? parsed.roleConfig : {};
+        if (Object.keys(roleConfig).length === 0 && parsed.phase === 'game' && parsed.players?.length) {
+          const counts: RoleConfig = {};
+          for (const p of parsed.players as Player[]) {
+            if (p.role?.id) counts[p.role.id] = (counts[p.role.id] ?? 0) + 1;
+          }
+          if (Object.keys(counts).length > 0) roleConfig = counts;
+        }
         return {
           ...parsed,
+          roleConfig,
+          gamePhase: parsed.gamePhase === 'day' ? 'day' : 'night',
+          deathLog: Array.isArray(parsed.deathLog) ? parsed.deathLog : [],
           lovers: Array.isArray(parsed.lovers) && parsed.lovers.length === 2
             ? (parsed.lovers as [string, string])
             : null,
@@ -25,18 +36,21 @@ function getInitialState(): GameState {
   } catch {
     // ignore
   }
-  return { phase: 'setup', players: [], night: 1, lovers: null };
+  return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [] };
 }
 
 type Action =
   | { type: 'add_player'; name: string }
   | { type: 'remove_player'; id: string }
   | { type: 'set_phase'; phase: GameState['phase'] }
+  | { type: 'set_role_config'; config: RoleConfig }
   | { type: 'assign_role'; playerId: string; role: Role }
-  | { type: 'assign_roles'; assignments: { playerId: string; role: Role }[] }
+  | { type: 'clear_role'; playerId: string }
+  | { type: 'assign_players_to_role'; roleId: string; playerIds: string[] }
   | { type: 'kill_player'; id: string }
   | { type: 'set_lovers'; pair: [string, string] }
-  | { type: 'next_night' }
+  | { type: 'night_to_day' }
+  | { type: 'day_to_night' }
   | { type: 'replace_state'; state: GameState }
   | { type: 'new_game' };
 
@@ -58,6 +72,8 @@ function gameReducer(state: GameState, action: Action): GameState {
       };
     case 'set_phase':
       return { ...state, phase: action.phase };
+    case 'set_role_config':
+      return { ...state, roleConfig: action.config };
     case 'assign_role': {
       return {
         ...state,
@@ -66,14 +82,24 @@ function gameReducer(state: GameState, action: Action): GameState {
         ),
       };
     }
-    case 'assign_roles': {
-      const byId = new Map(action.assignments.map((a) => [a.playerId, a.role]));
+    case 'clear_role':
       return {
         ...state,
-        players: state.players.map((p) => ({
-          ...p,
-          role: byId.get(p.id) ?? p.role,
-        })),
+        players: state.players.map((p) =>
+          p.id === action.playerId ? { ...p, role: null } : p
+        ),
+      };
+    case 'assign_players_to_role': {
+      const role = ROLES.find((r) => r.id === action.roleId);
+      if (!role) return state;
+      const idSet = new Set(action.playerIds);
+      return {
+        ...state,
+        players: state.players.map((p) => {
+          if (idSet.has(p.id)) return { ...p, role };
+          if (p.role?.id === action.roleId) return { ...p, role: null };
+          return p;
+        }),
       };
     }
     case 'kill_player': {
@@ -81,21 +107,29 @@ function gameReducer(state: GameState, action: Action): GameState {
       if (state.lovers && (state.lovers[0] === action.id || state.lovers[1] === action.id)) {
         killIds.add(state.lovers[0]).add(state.lovers[1]);
       }
+      const num = state.gamePhase === 'night' ? state.night : state.night;
+      const deathLog = [...state.deathLog];
+      for (const id of killIds) {
+        deathLog.push({ phase: state.gamePhase, number: num, playerId: id });
+      }
       return {
         ...state,
         players: state.players.map((p) =>
           killIds.has(p.id) ? { ...p, alive: false } : p
         ),
+        deathLog,
       };
     }
     case 'set_lovers':
       return { ...state, lovers: action.pair };
-    case 'next_night':
-      return { ...state, night: state.night + 1 };
+    case 'night_to_day':
+      return { ...state, gamePhase: 'day' };
+    case 'day_to_night':
+      return { ...state, gamePhase: 'night', night: state.night + 1 };
     case 'replace_state':
       return action.state;
     case 'new_game':
-      return { phase: 'setup', players: [], night: 1, lovers: null };
+      return { phase: 'setup', players: [], roleConfig: {}, night: 1, gamePhase: 'night', lovers: null, deathLog: [] };
     default:
       return state;
   }
@@ -132,19 +166,21 @@ export function LoupGarouGame() {
     dispatch({ type: 'set_phase', phase: 'roles' });
   }, []);
 
+  const startGame = useCallback((config: RoleConfig) => {
+    dispatch({ type: 'set_role_config', config });
+    dispatch({ type: 'set_phase', phase: 'game' });
+  }, []);
+
   const assignRole = useCallback((playerId: string, role: Role) => {
     dispatch({ type: 'assign_role', playerId, role });
   }, []);
 
-  const assignRoles = useCallback(
-    (assignments: { playerId: string; role: Role }[]) => {
-      dispatch({ type: 'assign_roles', assignments });
-    },
-    []
-  );
+  const clearRole = useCallback((playerId: string) => {
+    dispatch({ type: 'clear_role', playerId });
+  }, []);
 
-  const goToGame = useCallback(() => {
-    dispatch({ type: 'set_phase', phase: 'game' });
+  const assignPlayersToRole = useCallback((roleId: string, playerIds: string[]) => {
+    dispatch({ type: 'assign_players_to_role', roleId, playerIds });
   }, []);
 
   const setLovers = useCallback((pair: [string, string]) => {
@@ -157,10 +193,16 @@ export function LoupGarouGame() {
     dispatch({ type: 'kill_player', id });
   }, [state]);
 
-  const nextNight = useCallback(() => {
+  const nightToDay = useCallback(() => {
     undoHistoryRef.current.push(state);
     setUndoCount((c: number) => c + 1);
-    dispatch({ type: 'next_night' });
+    dispatch({ type: 'night_to_day' });
+  }, [state]);
+
+  const dayToNight = useCallback(() => {
+    undoHistoryRef.current.push(state);
+    setUndoCount((c: number) => c + 1);
+    dispatch({ type: 'day_to_night' });
   }, [state]);
 
   const undo = useCallback(() => {
@@ -204,22 +246,27 @@ export function LoupGarouGame() {
       )}
 
       {state.phase === 'roles' && (
-        <RoleAssignment
-          players={state.players}
-          onAssignRole={assignRole}
-          onAssignRoles={assignRoles}
-          onContinue={goToGame}
+        <RoleSelection
+          playerCount={state.players.length}
+          onStartGame={startGame}
         />
       )}
 
       {state.phase === 'game' && (
         <GamePhase
           players={state.players}
+          roleConfig={state.roleConfig}
           night={state.night}
+          gamePhase={state.gamePhase}
+          deathLog={state.deathLog}
           lovers={state.lovers}
+          onAssignRole={assignRole}
+          onClearRole={clearRole}
+          onAssignPlayersToRole={assignPlayersToRole}
           onSetLovers={setLovers}
           onKill={killPlayer}
-          onNextNight={nextNight}
+          onNightToDay={nightToDay}
+          onDayToNight={dayToNight}
           onUndo={undo}
           canUndo={canUndo}
         />
