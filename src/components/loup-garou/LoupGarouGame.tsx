@@ -129,8 +129,39 @@ function gameReducer(state: GameState, action: Action): GameState {
         ...state,
         stepTargets: { ...state.stepTargets, [action.key]: action.playerIds },
       };
-    case 'night_to_day':
-      return { ...state, gamePhase: 'day' };
+    case 'night_to_day': {
+      const nightKey = state.night;
+      const wolfTargets = state.stepTargets[`${nightKey}-loup-garou`] ?? [];
+      const wolfVictimId = wolfTargets.find((id) => id !== '__none__');
+      const witchTargets = state.stepTargets[`${nightKey}-sorciere`] ?? [];
+      const witchHealed = witchTargets.includes('__heal__');
+      const witchKillId = witchTargets.find((id) => id !== '__heal__' && id !== '__none__');
+
+      const killIds = new Set<string>();
+      if (wolfVictimId && !witchHealed) killIds.add(wolfVictimId);
+      if (witchKillId) killIds.add(witchKillId);
+      if (state.lovers) {
+        for (const id of killIds) {
+          if (state.lovers[0] === id || state.lovers[1] === id) {
+            killIds.add(state.lovers[0]).add(state.lovers[1]);
+            break;
+          }
+        }
+      }
+
+      const deathLog = [...state.deathLog];
+      for (const id of killIds) {
+        deathLog.push({ phase: 'night', number: nightKey, playerId: id });
+      }
+      return {
+        ...state,
+        gamePhase: 'day',
+        players: state.players.map((p) =>
+          killIds.has(p.id) ? { ...p, alive: false } : p
+        ),
+        deathLog,
+      };
+    }
     case 'day_to_night':
       return { ...state, gamePhase: 'night', night: state.night + 1 };
     case 'replace_state':

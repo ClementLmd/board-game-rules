@@ -328,6 +328,129 @@ interface NightCallRowProps {
 }
 
 const STEP_TARGET_NONE = '__none__';
+const STEP_TARGET_HEAL = '__heal__';
+
+function getWitchPotionUsed(
+  stepTargets: Record<string, string[]>,
+  excludeNight?: number
+): { heal: boolean; kill: boolean } {
+  let heal = false;
+  let kill = false;
+  for (const [key, ids] of Object.entries(stepTargets)) {
+    if (!key.endsWith('-sorciere')) continue;
+    if (excludeNight != null && key.startsWith(`${excludeNight}-`)) continue;
+    if (ids.includes(STEP_TARGET_HEAL)) heal = true;
+    const killTarget = ids.find((id) => id !== STEP_TARGET_HEAL && id !== STEP_TARGET_NONE);
+    if (killTarget) kill = true;
+  }
+  return { heal, kill };
+}
+
+interface WitchChoiceProps {
+  wolfVictim: Player | null;
+  alivePlayers: Player[];
+  healUsed: boolean;
+  killUsed: boolean;
+  currentTargets: string[];
+  onSetTarget: (ids: string[]) => void;
+  onCancel: () => void;
+}
+
+function WitchChoice({
+  wolfVictim,
+  alivePlayers,
+  healUsed,
+  killUsed,
+  currentTargets,
+  onSetTarget,
+  onCancel,
+}: WitchChoiceProps) {
+  const [localHeal, setLocalHeal] = useState(currentTargets.includes(STEP_TARGET_HEAL));
+  const [localKill, setLocalKill] = useState<string | null>(
+    currentTargets.find((id) => id !== STEP_TARGET_HEAL && id !== STEP_TARGET_NONE) ?? null
+  );
+
+  const canHeal = !healUsed && wolfVictim != null;
+  const canKill = !killUsed;
+
+  const handleValidate = useCallback(() => {
+    const ids: string[] = [];
+    if (canHeal && localHeal) ids.push(STEP_TARGET_HEAL);
+    if (canKill && localKill) ids.push(localKill);
+    onSetTarget(ids);
+  }, [canHeal, canKill, localHeal, localKill, onSetTarget]);
+
+  return (
+    <div className="mb-6 space-y-4">
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        Victime des loups : {wolfVictim ? wolfVictim.name : '—'}
+      </p>
+      <div className="space-y-3">
+        <div>
+          <button
+            type="button"
+            disabled={!canHeal}
+            onClick={() => canHeal && setLocalHeal(!localHeal)}
+            className={`min-h-[44px] w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium ${
+              canHeal
+                ? localHeal
+                  ? 'border-2 border-green-500 bg-green-100 text-green-800 dark:border-green-600 dark:bg-green-900/50 dark:text-green-200'
+                  : 'border border-green-200 bg-green-50 text-green-800 active:bg-green-100 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200 dark:active:bg-green-900/50'
+                : 'cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-500'
+            }`}
+          >
+            {healUsed ? 'Guérison déjà utilisée' : wolfVictim ? (localHeal ? '✓ Guérir la victime' : 'Guérir la victime') : 'Aucune victime à guérir'}
+          </button>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Potion de mort
+          </label>
+          <select
+            value={localKill ?? ''}
+            onChange={(e) => setLocalKill(e.target.value || null)}
+            disabled={!canKill}
+            className={`min-h-[44px] w-full rounded-xl border px-4 py-2.5 text-base ${
+              canKill
+                ? 'border-gray-200 bg-white text-gray-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:focus:border-red-500 dark:focus:ring-red-500/30'
+                : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-500'
+            }`}
+          >
+            <option value="">{killUsed ? 'Déjà utilisée' : 'Ne tuer personne'}</option>
+            {alivePlayers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => onSetTarget([])}
+          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 active:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
+        >
+          Ne rien faire
+        </button>
+        <button
+          type="button"
+          onClick={handleValidate}
+          className="min-h-[44px] rounded-xl bg-primary-100 px-4 py-2.5 text-sm font-medium text-primary-700 active:bg-primary-200 dark:bg-red-900/40 dark:text-red-300 dark:active:bg-red-900/60"
+        >
+          Valider
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 active:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:active:bg-gray-600"
+        >
+          Fermer
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function NightCallRow({
   step,
@@ -355,17 +478,38 @@ function NightCallRow({
   const stepKey = `${night}-${step.key}`;
   const targetIds = stepTargets[stepKey] ?? [];
   const targetNames = targetIds
-    .filter((id) => id !== STEP_TARGET_NONE)
+    .filter((id) => id !== STEP_TARGET_NONE && id !== STEP_TARGET_HEAL)
     .map((id) => players.find((p) => p.id === id)?.name)
     .filter(Boolean) as string[];
-  const targetDisplay = targetIds.includes(STEP_TARGET_NONE) ? 'Aucun' : targetNames.join(', ');
+  const witchPotionUsed = getWitchPotionUsed(stepTargets);
+  const witchPotionUsedExcludingThisNight = getWitchPotionUsed(stepTargets, night);
+  const wolfVictimIds = stepTargets[`${night}-loup-garou`] ?? [];
+  const wolfVictimId = wolfVictimIds.find((id) => id !== STEP_TARGET_NONE);
+  const wolfVictim = wolfVictimId ? (players.find((p) => p.id === wolfVictimId) ?? null) : null;
+  const targetDisplay =
+    step.key === 'sorciere'
+      ? (() => {
+          const healed = targetIds.includes(STEP_TARGET_HEAL);
+          const killTarget = targetIds.find((id) => id !== STEP_TARGET_HEAL && id !== STEP_TARGET_NONE);
+          const parts: string[] = [];
+          if (healed) parts.push('Guérison');
+          if (killTarget) parts.push(players.find((p) => p.id === killTarget)?.name ?? '?');
+          return parts.length > 0 ? parts.join(' ; ') : targetIds.length > 0 ? 'Rien' : '';
+        })()
+      : targetIds.includes(STEP_TARGET_NONE)
+        ? 'Aucun'
+        : targetNames.join(', ');
 
   const actionLabel = ROLE_ACTION_LABELS[step.key];
   const targets =
     step.key === 'loup-blanc'
       ? alivePlayers.filter((p) => p.role?.id === 'loup-garou' || p.role?.id === 'loup-blanc')
       : alivePlayers;
-  const hasTargets = actionLabel && (targets.length > 0 || step.key === 'loup-blanc');
+  const hasTargets =
+    actionLabel &&
+    step.key !== 'sorciere' &&
+    (targets.length > 0 || step.key === 'loup-blanc');
+  const isWitchStep = step.key === 'sorciere';
 
   return (
     <>
@@ -464,6 +608,21 @@ function NightCallRow({
                     {step.action}
                   </p>
                 </div>
+                {isWitchStep && (
+                  <WitchChoice
+                    wolfVictim={wolfVictim}
+                    alivePlayers={alivePlayers}
+                    healUsed={witchPotionUsedExcludingThisNight.heal}
+                    killUsed={witchPotionUsedExcludingThisNight.kill}
+                    currentTargets={targetIds}
+                    onSetTarget={(ids) => {
+                      onSetStepTarget(stepKey, ids);
+                      onToggleChecked();
+                      setShowCard(false);
+                    }}
+                    onCancel={() => setShowCard(false)}
+                  />
+                )}
                 {hasTargets && (
                   <div className="mb-6">
                     <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -503,7 +662,7 @@ function NightCallRow({
                     </ul>
                   </div>
                 )}
-                {!hasTargets && (step.key === 'amoureux' || step.key === 'cupidon') && (
+                {!hasTargets && !isWitchStep && (step.key === 'amoureux' || step.key === 'cupidon') && (
                   <div className="mb-6">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {step.key === 'amoureux'
@@ -512,6 +671,7 @@ function NightCallRow({
                     </p>
                   </div>
                 )}
+                {!isWitchStep && (
                 <div className="flex flex-wrap gap-3">
                   {isCupidonStep && showLoversButton && cupidonLoversProps && (
                     <button
@@ -544,6 +704,7 @@ function NightCallRow({
                     Fermer
                   </button>
                 </div>
+                )}
               </>
             )}
           </div>
@@ -573,14 +734,22 @@ function RoleAssignModal({
   const availablePlayers = players.filter((p) => !p.role);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const toggle = useCallback((id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const toggle = useCallback(
+    (id: string) => {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else if (expectedCount === 1) {
+          return new Set([id]);
+        } else if (prev.size < expectedCount) {
+          next.add(id);
+        }
+        return next;
+      });
+    },
+    [expectedCount]
+  );
 
   const handleConfirm = useCallback(() => {
     if (selected.size === expectedCount) {
