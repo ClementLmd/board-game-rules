@@ -7,9 +7,10 @@ interface Heading {
 
 interface Props {
   headings: Heading[];
+  gameSlug?: string;
 }
 
-const { headings } = Astro.props;
+const { headings, gameSlug = '' } = Astro.props;
 
 // Only show H2 headings for the TOC
 const tocItems = headings.filter((h) => h.depth === 2);
@@ -22,6 +23,22 @@ const adviceHeading = tocItems.find(
 
 {tocItems.length > 0 && (
   <>
+    {/* ─── Mobile: Conseils above summary (when not loup-garou, which has it next to CTA) ─── */}
+    {adviceHeading && gameSlug !== 'loup-garou' && (
+      <div class="lg:hidden mb-3">
+        <a
+          href={`#${adviceHeading.slug}`}
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 active:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          aria-label="Aller aux conseils"
+        >
+          <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          Conseils
+        </a>
+      </div>
+    )}
+
     {/* ─── Mobile: collapsible card above content ─── */}
     <nav id="toc-mobile" class="lg:hidden mb-8 bg-white rounded-xl border border-gray-100 overflow-hidden">
       <button
@@ -108,20 +125,19 @@ const adviceHeading = tocItems.find(
       </div>
     </nav>
 
-    {/* ─── Floating advice button (mobile only) ─── */}
-    {adviceHeading && (
-      <a
-        id="floating-advice-btn"
-        href={`#${adviceHeading.slug}`}
-        class="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-600 text-white text-sm font-medium shadow-lg shadow-primary-600/25 hover:bg-primary-700 transition-all opacity-0 translate-y-4 pointer-events-none"
-        aria-label="Aller aux conseils"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-        Conseils
-      </a>
-    )}
+    {/* ─── Floating go-to-top button (mobile only, when scrolled) ─── */}
+    <button
+      type="button"
+      id="floating-goto-top-btn"
+      class="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-600 text-white text-sm font-medium shadow-lg shadow-primary-600/25 hover:bg-primary-700 transition-all opacity-0 translate-y-4 pointer-events-none"
+      aria-label="Retour en haut de la page"
+      title="Retour en haut"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+      </svg>
+      Retour en haut
+    </button>
   </>
 )}
 
@@ -146,14 +162,11 @@ const adviceHeading = tocItems.find(
     });
   });
 
-  // Floating advice button visibility (mobile only)
-  const floatingBtn = document.getElementById('floating-advice-btn');
+  // Floating go-to-top button visibility (mobile only): show when TOC has scrolled out of view
+  const floatingBtn = document.getElementById('floating-goto-top-btn');
   const tocMobile = document.getElementById('toc-mobile');
 
   if (floatingBtn && tocMobile) {
-    const adviceSlug = floatingBtn.getAttribute('href')?.slice(1);
-    const adviceSection = adviceSlug ? document.getElementById(adviceSlug) : null;
-
     const tocObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -172,20 +185,9 @@ const adviceHeading = tocItems.find(
     );
     tocObserver.observe(tocMobile);
 
-    if (adviceSection) {
-      const adviceObserver = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              floatingBtn.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
-              floatingBtn.classList.remove('opacity-100', 'translate-y-0', 'pointer-events-auto');
-            }
-          });
-        },
-        { threshold: 0.1 }
-      );
-      adviceObserver.observe(adviceSection);
-    }
+    floatingBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   }
 
   // Active section highlighting (both mobile + desktop TOC links)

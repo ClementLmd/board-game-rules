@@ -16,12 +16,31 @@ export interface Player {
   alive: boolean;
 }
 
+/** Role configuration: roleId -> count. e.g. { "loup-garou": 2, "villageois": 4 } */
+export type RoleConfig = Record<string, number>;
+
+export type GamePhaseType = 'night' | 'day';
+
+export interface DeathLogEntry {
+  phase: GamePhaseType;
+  number: number;
+  playerId: string;
+}
+
 export interface GameState {
   phase: Phase;
   players: Player[];
+  /** Which roles are in the game and how many of each. Set at start; roles revealed progressively during night. */
+  roleConfig: RoleConfig;
   night: number;
+  /** Current sub-phase: night (roles act) or day (village votes). */
+  gamePhase: GamePhaseType;
   /** Cupidon: pair of player ids (amoureux). If one dies, the other dies too. */
   lovers: [string, string] | null;
+  /** Log of deaths for recap: "night 1: X died; day 1: Y died" */
+  deathLog: DeathLogEntry[];
+  /** Selected targets per step: key = `${night}-${stepKey}`, value = player IDs or ["__none__"] for loup-blanc */
+  stepTargets: Record<string, string[]>;
 }
 
 export const ROLES: Role[] = [
@@ -83,8 +102,9 @@ export const ROLES: Role[] = [
   },
 ];
 
-export const MIN_PLAYERS = 5;
+export const MIN_PLAYERS = 6;
 export const MAX_PLAYERS = 18;
+export const MAX_PLAYER_NAME_LENGTH = 15;
 
 export const STORAGE_KEY = 'loup-garou-game-state';
 
@@ -141,21 +161,34 @@ export interface NightCallStep {
   label: string;
   playerNames: string[];
   action: string;
+  /** How many players should have this role (from roleConfig). Only for non-amoureux steps. */
+  expectedCount?: number;
+  /** How many alive players are assigned to this role (for display). */
+  assignedCount?: number;
+  /** Total assigned (alive + dead). When equals expectedCount, role cannot be reassigned. */
+  totalAssignedCount?: number;
 }
 
-/** Returns night call steps for the game master, in order, filtered by alive players and night number */
+/** Returns night call steps for the game master, in order, filtered by roleConfig and night number.
+ * Steps are shown for roles in roleConfig; playerNames come from assigned players (may be empty if not yet assigned). */
 export function getNightCallOrder(
   players: Player[],
   night: number,
-  lovers: [string, string] | null = null
+  lovers: [string, string] | null,
+  roleConfig: RoleConfig
 ): NightCallStep[] {
   const aliveByRoleId = new Map<string, Player[]>();
+  const allByRoleId = new Map<string, Player[]>();
   const playerById = new Map(players.map((p) => [p.id, p]));
   for (const p of players) {
-    if (!p.alive || !p.role) continue;
+    if (!p.role) continue;
     const id = p.role.id;
-    if (!aliveByRoleId.has(id)) aliveByRoleId.set(id, []);
-    aliveByRoleId.get(id)!.push(p);
+    if (!allByRoleId.has(id)) allByRoleId.set(id, []);
+    allByRoleId.get(id)!.push(p);
+    if (p.alive) {
+      if (!aliveByRoleId.has(id)) aliveByRoleId.set(id, []);
+      aliveByRoleId.get(id)!.push(p);
+    }
   }
   const steps: NightCallStep[] = [];
   const isNight1 = night === 1;
@@ -165,7 +198,7 @@ export function getNightCallOrder(
     if (call.night1Only && !isNight1) continue;
     if (call.oddNightsOnly && !isOddNight) continue;
     if (call.roleId === 'amoureux') {
-      const hasCupidon = (aliveByRoleId.get('cupidon')?.length ?? 0) > 0;
+      const hasCupidon = (roleConfig['cupidon'] ?? 0) > 0;
       if (!hasCupidon) continue;
       const names = lovers
         ? lovers.map((id) => playerById.get(id)?.name).filter(Boolean) as string[]
@@ -173,13 +206,20 @@ export function getNightCallOrder(
       steps.push({ key: 'amoureux', label: call.label, playerNames: names, action: call.action });
       continue;
     }
-    const rolePlayers = aliveByRoleId.get(call.roleId);
-    if (rolePlayers && rolePlayers.length > 0) {
+    const count = roleConfig[call.roleId] ?? 0;
+    const rolePlayers = aliveByRoleId.get(call.roleId) ?? [];
+    const totalAssigned = (allByRoleId.get(call.roleId) ?? []).length;
+    const hasAlivePlayer = rolePlayers.length > 0;
+    const canAssign = totalAssigned < count;
+    if (count > 0 && (hasAlivePlayer || (canAssign && totalAssigned === 0))) {
       steps.push({
         key: call.roleId,
         label: call.label,
         playerNames: rolePlayers.map((p) => p.name),
         action: call.action,
+        expectedCount: count,
+        assignedCount: rolePlayers.length,
+        totalAssignedCount: totalAssigned,
       });
     }
   }
