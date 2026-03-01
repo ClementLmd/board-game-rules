@@ -7,12 +7,12 @@ function maxForRole(char: Character): number {
   return Infinity; // loup-garou, villageois
 }
 
-const CONFIGURABLE_ROLES = CHARACTERS.filter((c) => c.id !== 'villageois');
+const CONFIGURABLE_ROLES = CHARACTERS.filter((c) => c.id !== 'villageois' && !c.configKey);
 const ROLE_GROUPS = [
-  { label: 'Loups-Garous', ids: ['loup-garou'], color: 'text-red-400' },
+  { label: 'Loups-Garous', ids: ['loup-garou', 'loup-blanc'], color: 'text-red-400' },
   {
     label: 'Village',
-    ids: ['cupidon', 'voyante', 'sorciere', 'chasseur', 'petite-fille'],
+    ids: ['cupidon', 'voyante', 'sorciere', 'renard', 'chasseur', 'petite-fille'],
     color: 'text-violet-400',
   },
 ];
@@ -28,8 +28,10 @@ export function RoleConfigV2({ playerCount, onStart }: RoleConfigV2Props) {
     voyante: 1,
     sorciere: 1,
     cupidon: 0,
+    renard: 0,
     chasseur: 0,
     'petite-fille': 0,
+    'loup-blanc': 0,
     villageois: 0,
   }));
 

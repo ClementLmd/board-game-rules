@@ -1,9 +1,9 @@
-import { useCallback, useState } from 'react';
-import { ChevronRight, Sun, Eye, UserCheck, ChevronDown } from 'lucide-react';
-import type { Character, Player } from './game-data';
-import { CHARACTER_COLORS } from './game-data';
+import { useCallback, useState } from "react";
+import { ChevronRight, Sun, Eye, UserCheck, ChevronDown } from "lucide-react";
+import type { Character, Player } from "./game-data";
+import { CHARACTER_COLORS } from "./game-data";
 
-const HEAL_TOKEN = '__heal__';
+const HEAL_TOKEN = "__heal__";
 
 interface CharacterCardV2Props {
   character: Character;
@@ -21,6 +21,10 @@ interface CharacterCardV2Props {
   /** Player IDs already assigned to another role */
   takenPlayerIds: Set<number>;
   onToggleAssignPlayer: (playerId: number) => void;
+  /** Loup-blanc-solo: true when GM must first pick which pool player is the white wolf (night 2) */
+  loupBlancSoloAssignMode?: boolean;
+  /** Loups-Garous card: pool includes Loup-Blanc (who will be designated on night 2) */
+  wolfPoolIncludesLoupBlanc?: boolean;
   // Navigation
   onNext: () => void;
   onWakeVillage: () => void;
@@ -29,17 +33,24 @@ interface CharacterCardV2Props {
   witchHealUsed: boolean;
   witchKillUsed: boolean;
   lovers: [number, number] | null;
+  /** When Renard has chosen 3 players: true = at least one wolf in group (GM hint) */
+  renardWolfInGroup?: boolean;
 }
 
-function TeamBadge({ team }: { team: Character['team'] }) {
+function TeamBadge({ team }: { team: Character["team"] }) {
   const config = {
-    loups: { label: 'Loups-Garous', className: 'bg-red-900/30 text-red-400' },
-    village: { label: 'Village', className: 'bg-violet-900/30 text-violet-400' },
-    solo: { label: 'Solitaire', className: 'bg-gray-700 text-gray-400' },
+    loups: { label: "Loups-Garous", className: "bg-red-900/30 text-red-400" },
+    village: {
+      label: "Village",
+      className: "bg-violet-900/30 text-violet-400",
+    },
+    solo: { label: "Solitaire", className: "bg-gray-700 text-gray-400" },
   };
   const { label, className } = config[team];
   return (
-    <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${className}`}>
+    <span
+      className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${className}`}
+    >
       {label}
     </span>
   );
@@ -66,8 +77,10 @@ function RoleAssignSection({
   const [open, setOpen] = useState(!isComplete);
 
   const assignedNames = assignedPlayerIds
-    .map((id) => allPlayers.find((p) => p.id === id)?.name ?? '?')
-    .join(', ');
+    .map((id) => allPlayers.find((p) => p.id === id))
+    .filter((p): p is Player => p != null && p.isAlive)
+    .map((p) => p.name)
+    .join(", ");
 
   return (
     <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
@@ -78,9 +91,13 @@ function RoleAssignSection({
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
         <div className="flex items-center gap-2">
-          <UserCheck className={`h-4 w-4 ${isComplete ? 'text-emerald-400' : 'text-amber-400'}`} />
-          <span className={`text-sm font-semibold ${isComplete ? 'text-emerald-400' : 'text-amber-400'}`}>
-            {isComplete ? assignedNames : 'Attribution du rôle'}
+          <UserCheck
+            className={`h-4 w-4 ${isComplete ? "text-emerald-400" : "text-amber-400"}`}
+          />
+          <span
+            className={`text-sm font-semibold ${isComplete ? "text-emerald-400" : "text-amber-400"}`}
+          >
+            {isComplete ? assignedNames : "Attribution du rôle"}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -90,7 +107,7 @@ function RoleAssignSection({
             </span>
           )}
           <ChevronDown
-            className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           />
         </div>
       </button>
@@ -110,18 +127,21 @@ function RoleAssignSection({
                   onClick={() => {
                     onToggle(p.id);
                     // Auto-collapse once the last required slot is filled
-                    if (!isAssigned && assignedPlayerIds.length + 1 >= requiredAssignCount) {
+                    if (
+                      !isAssigned &&
+                      assignedPlayerIds.length + 1 >= requiredAssignCount
+                    ) {
                       setOpen(false);
                     }
                   }}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     isAssigned
-                      ? 'border-amber-600 bg-amber-600 text-white'
+                      ? "border-amber-600 bg-amber-600 text-white"
                       : isTaken
-                      ? 'cursor-not-allowed border-gray-800 bg-gray-900 text-gray-600 line-through'
-                      : p.isAlive
-                      ? 'border-gray-700 bg-gray-800 text-gray-200 hover:border-amber-700 hover:text-amber-300'
-                      : 'border-gray-800 bg-gray-900 text-gray-600 line-through'
+                        ? "cursor-not-allowed border-gray-800 bg-gray-900 text-gray-600 line-through"
+                        : p.isAlive
+                          ? "border-gray-700 bg-gray-800 text-gray-200 hover:border-amber-700 hover:text-amber-300"
+                          : "border-gray-800 bg-gray-900 text-gray-600 line-through"
                   }`}
                 >
                   {p.name}
@@ -131,10 +151,10 @@ function RoleAssignSection({
           </div>
           {!isComplete && (
             <p className="mt-3 text-xs text-gray-500">
-              Choisissez{' '}
+              Choisissez{" "}
               {requiredAssignCount === 1
-                ? 'le joueur qui a ce rôle'
-                : `les ${requiredAssignCount} joueurs qui ont ce rôle`}{' '}
+                ? "le joueur qui a ce rôle"
+                : `les ${requiredAssignCount} joueurs qui ont ce rôle`}{" "}
               avant de continuer.
             </p>
           )}
@@ -171,19 +191,21 @@ function TargetButtons({
         onSelectionChange([...selected]);
       }
     },
-    [selection, maxTargets, onSelectionChange]
+    [selection, maxTargets, onSelectionChange],
   );
 
   if (!colors || maxTargets === 0) return null;
 
   const label =
     maxTargets === 1
-      ? 'Choisir 1 joueur'
+      ? "Choisir 1 joueur"
       : `Choisir ${maxTargets} joueurs (${selection.length}/${maxTargets})`;
 
   return (
     <div className="mb-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">{label}</p>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+        {label}
+      </p>
       <div className="flex flex-wrap gap-2">
         {alivePlayers.map((p) => {
           const isSelected = selection.includes(String(p.id));
@@ -251,14 +273,16 @@ function WitchTargets({
             onClick={toggleHeal}
             className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
               isHealed
-                ? 'border-emerald-600 bg-emerald-600 text-white'
-                : 'border-emerald-800 bg-emerald-950/40 text-emerald-300'
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-emerald-800 bg-emerald-950/40 text-emerald-300"
             }`}
           >
-            {isHealed ? '✓ ' : ''}Guérir {wolfVictim.name}
+            {isHealed ? "✓ " : ""}Guérir {wolfVictim.name}
           </button>
         ) : (
-          <p className="text-sm text-gray-600">Aucune victime désignée par les loups.</p>
+          <p className="text-sm text-gray-600">
+            Aucune victime désignée par les loups.
+          </p>
         )}
       </div>
 
@@ -279,8 +303,8 @@ function WitchTargets({
                   onClick={() => toggleKill(String(p.id))}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     isSelected
-                      ? 'border-red-700 bg-red-700 text-white'
-                      : 'border-red-800 bg-red-950/40 text-red-300'
+                      ? "border-red-700 bg-red-700 text-white"
+                      : "border-red-800 bg-red-950/40 text-red-300"
                   }`}
                 >
                   {p.name}
@@ -306,19 +330,24 @@ export function CharacterCardV2({
   requiredAssignCount,
   takenPlayerIds,
   onToggleAssignPlayer,
+  loupBlancSoloAssignMode,
+  wolfPoolIncludesLoupBlanc,
   onNext,
   onWakeVillage,
   wolfVictimId,
   witchHealUsed,
   witchKillUsed,
   lovers,
+  renardWolfInGroup,
 }: CharacterCardV2Props) {
-  const isAssigned = assignedPlayerIds.length >= requiredAssignCount;
+  const isAssigned = loupBlancSoloAssignMode
+    ? selection.length === 1
+    : assignedPlayerIds.length >= requiredAssignCount;
 
   // For cupidon on subsequent nights (lovers already set), show lovers info
-  const loversAlreadySet = character.id === 'cupidon' && lovers !== null;
+  const loversAlreadySet = character.id === "cupidon" && lovers !== null;
   const loverNames = lovers
-    ? lovers.map((id) => allPlayers.find((p) => p.id === id)?.name ?? '?')
+    ? lovers.map((id) => allPlayers.find((p) => p.id === id)?.name ?? "?")
     : [];
 
   return (
@@ -333,7 +362,9 @@ export function CharacterCardV2({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-transparent to-transparent" />
           <div className="absolute bottom-3 left-3 right-3">
-            <h2 className="text-xl font-bold text-gray-100 drop-shadow-lg">{character.name}</h2>
+            <h2 className="text-xl font-bold text-gray-100 drop-shadow-lg">
+              {character.name}
+            </h2>
             <TeamBadge team={character.team} />
           </div>
         </div>
@@ -342,32 +373,90 @@ export function CharacterCardV2({
         <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-4">
           <div className="mb-2 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
-            <h3 className="text-sm font-semibold text-violet-400">Action de nuit</h3>
+            <h3 className="text-sm font-semibold text-violet-400">
+              Action de nuit
+            </h3>
           </div>
-          <p className="text-sm leading-relaxed text-gray-300">{character.nightAction}</p>
+          <p className="text-sm leading-relaxed text-gray-300">
+            {character.nightAction}
+          </p>
         </div>
 
-        {/* Role assignment (always shown) */}
-        <RoleAssignSection
-          character={character}
-          allPlayers={allPlayers}
-          assignedPlayerIds={assignedPlayerIds}
-          requiredAssignCount={requiredAssignCount}
-          takenPlayerIds={takenPlayerIds}
-          onToggle={onToggleAssignPlayer}
-        />
+        {/* Role assignment (hidden for sub-step roles like loup-blanc-solo) */}
+        {requiredAssignCount > 0 && (
+          <>
+            <RoleAssignSection
+              character={character}
+              allPlayers={allPlayers}
+              assignedPlayerIds={assignedPlayerIds}
+              requiredAssignCount={requiredAssignCount}
+              takenPlayerIds={takenPlayerIds}
+              onToggle={onToggleAssignPlayer}
+            />
+            {wolfPoolIncludesLoupBlanc && (
+              <p className="mb-4 text-xs text-gray-500">
+                Ce groupe inclut le Loup-Blanc.
+              </p>
+            )}
+          </>
+        )}
 
-        {/* Target / action section — only after role is assigned */}
-        {isAssigned && (
+        {/* Target / action section — after role assigned, or loup-blanc-solo assign mode */}
+        {(isAssigned ||
+          (character.id === "loup-blanc-solo" && loupBlancSoloAssignMode)) && (
           <>
             {loversAlreadySet ? (
               <div className="mb-4 rounded-lg border border-pink-900/50 bg-pink-950/20 p-4">
                 <p className="text-xs font-semibold uppercase tracking-widest text-pink-400 mb-1">
                   Amoureux désignés (nuit 1)
                 </p>
-                <p className="text-sm text-pink-300">{loverNames.join(' & ')}</p>
+                <p className="text-sm text-pink-300">
+                  {loverNames.join(" & ")}
+                </p>
               </div>
-            ) : character.id === 'sorciere' ? (
+            ) : character.id === "renard" &&
+              selection.length === 3 &&
+              renardWolfInGroup !== undefined ? (
+              <div className="mb-4 space-y-4">
+                <TargetButtons
+                  character={character}
+                  alivePlayers={targetPlayers}
+                  selection={selection}
+                  onSelectionChange={onSelectionChange}
+                />
+                <div className="rounded-lg border border-amber-800/50 bg-amber-950/30 px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-amber-500/90">
+                    Indication MDJ
+                  </p>
+                  <p className="text-sm text-amber-200">
+                    Au moins un loup dans le groupe :{" "}
+                    <strong>{renardWolfInGroup ? "Oui" : "Non"}</strong>
+                    {!renardWolfInGroup && (
+                      <span className="mt-1 block text-xs text-amber-400/80">
+                        Le Renard perd son pouvoir.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : character.id === "loup-blanc-solo" &&
+              loupBlancSoloAssignMode ? (
+              <div className="mb-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+                  Qui est le Loup-Blanc ?
+                </p>
+                <p className="mb-3 text-sm text-gray-400">
+                  Choisissez le joueur qui sera le Loup-Blanc (il quitte le
+                  groupe des Loups-Garous).
+                </p>
+                <TargetButtons
+                  character={{ ...character, maxTargets: 1 }}
+                  alivePlayers={targetPlayers}
+                  selection={selection}
+                  onSelectionChange={onSelectionChange}
+                />
+              </div>
+            ) : character.id === "sorciere" ? (
               <WitchTargets
                 allPlayers={allPlayers}
                 alivePlayers={targetPlayers}

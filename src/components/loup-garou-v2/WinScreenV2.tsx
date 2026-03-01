@@ -1,7 +1,7 @@
 import { RotateCcw } from 'lucide-react';
 
 interface WinScreenV2Props {
-  winner: 'wolves' | 'village';
+  winner: 'wolves' | 'village' | 'loup-blanc';
   onRestart: () => void;
 }
 
@@ -10,11 +10,19 @@ const CONFIG = {
     image: '/images/loup-garou-win.png',
     bg: 'from-gray-950 to-gray-950',
     button: 'bg-red-700 hover:bg-red-600 active:bg-red-800',
+    alt: 'Victoire des Loups-Garous',
   },
   village: {
     image: '/images/villageois-win.png',
     bg: 'from-gray-950 to-gray-950',
     button: 'bg-violet-600 hover:bg-violet-500 active:bg-violet-700',
+    alt: 'Victoire des Villageois',
+  },
+  'loup-blanc': {
+    image: '/images/loup-garou-win.png',
+    bg: 'from-gray-950 to-gray-950',
+    button: 'bg-gray-600 hover:bg-gray-500 active:bg-gray-700',
+    alt: 'Victoire du Loup-Blanc',
   },
 } as const;
 
@@ -26,7 +34,7 @@ export function WinScreenV2({ winner, onRestart }: WinScreenV2Props) {
       {/* Image — constrained so it never fills the whole screen */}
       <img
         src={c.image}
-        alt={winner === 'wolves' ? 'Victoire des Loups-Garous' : 'Victoire des Villageois'}
+        alt={c.alt}
         className="mb-8 w-full max-w-xs rounded-2xl object-contain sm:max-w-sm"
       />
 

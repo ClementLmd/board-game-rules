@@ -18,7 +18,7 @@ import { WinScreenV2 } from './WinScreenV2';
 import { DeathHistoryPanel, type DeathEntry } from './DeathHistoryPanel';
 
 type Phase = 'setup' | 'roleConfig' | 'night' | 'wake' | 'day' | 'dayResult' | 'win';
-type Winner = 'wolves' | 'village';
+type Winner = 'wolves' | 'village' | 'loup-blanc';
 
 const STORAGE_KEY = 'loup-garou-v2';
 
@@ -33,6 +33,7 @@ interface V2SavedState {
   lovers: [number, number] | null;
   witchHealUsed: boolean;
   witchKillUsed: boolean;
+  renardPowerLost: boolean;
   winner: Winner | null;
   deathLog: DeathEntry[];
 }
@@ -58,9 +59,21 @@ interface GameMasterV2Props {
 function isRoleActive(
   char: Character,
   roleAssignments: Record<string, number[]>,
-  players: Player[]
+  players: Player[],
+  renardPowerLost: boolean,
+  roleConfig: RoleConfigV2
 ): boolean {
-  const assigned = roleAssignments[char.id] ?? [];
+  if (char.id === 'renard' && renardPowerLost) return false;
+  const roleKey = char.configKey ?? char.id;
+  const assigned = roleAssignments[roleKey] ?? [];
+  // Loup-blanc-solo: show when white wolf is assigned and alive, OR when pool is not yet split (night 2 assign)
+  if (char.id === 'loup-blanc-solo' && roleKey === 'loup-blanc') {
+    const pool = roleAssignments['loup-garou'] ?? [];
+    const wolfCount = roleConfig['loup-garou'] ?? 0;
+    const needAssign = (roleConfig['loup-blanc'] ?? 0) > 0 && assigned.length === 0 && pool.length > wolfCount;
+    if (needAssign) return pool.some((id) => players.find((p) => p.id === id)?.isAlive);
+    if (assigned.length === 0) return false;
+  }
   if (assigned.length === 0) return true; // not yet assigned — keep it so GM can assign
   return assigned.some((id) => players.find((p) => p.id === id)?.isAlive);
 }
@@ -68,15 +81,19 @@ function isRoleActive(
 /**
  * Returns the winner if a win condition is met, or null to continue.
  * Village wins when no wolves are alive; wolves win when no non-wolves are alive.
+ * Loup-Blanc wins when he is the only survivor.
  */
 function checkWin(
   players: Player[],
   roleAssignments: Record<string, number[]>
 ): Winner | null {
   const wolfIds = new Set(roleAssignments['loup-garou'] ?? []);
+  const whiteWolfIds = new Set(roleAssignments['loup-blanc'] ?? []);
   const alive = players.filter((p) => p.isAlive);
   const aliveWolves = alive.filter((p) => wolfIds.has(p.id));
   const aliveVillagers = alive.filter((p) => !wolfIds.has(p.id));
+  // Loup-Blanc solo win: only the white wolf is alive
+  if (alive.length === 1 && whiteWolfIds.has(alive[0].id)) return 'loup-blanc';
   if (aliveWolves.length === 0) return 'village';
   if (aliveVillagers.length === 0) return 'wolves';
   return null;
@@ -95,6 +112,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   const [lovers, setLovers] = useState<[number, number] | null>(saved.lovers ?? null);
   const [witchHealUsed, setWitchHealUsed] = useState(saved.witchHealUsed ?? false);
   const [witchKillUsed, setWitchKillUsed] = useState(saved.witchKillUsed ?? false);
+  const [renardPowerLost, setRenardPowerLost] = useState(saved.renardPowerLost ?? false);
   const [winner, setWinner] = useState<Winner | null>(saved.winner ?? null);
   const [deathLog, setDeathLog] = useState<DeathEntry[]>(saved.deathLog ?? []);
   const [recapOpen, setRecapOpen] = useState(false);
@@ -110,11 +128,11 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     undoStack.current.push({
       phase, players, roleConfig, night, currentStep,
       stepSelections, roleAssignments, lovers,
-      witchHealUsed, witchKillUsed, winner, deathLog,
+      witchHealUsed, witchKillUsed, renardPowerLost, winner, deathLog,
     });
     if (undoStack.current.length > 20) undoStack.current.shift();
     setUndoCount(undoStack.current.length);
-  }, [phase, players, roleConfig, night, currentStep, stepSelections, roleAssignments, lovers, witchHealUsed, witchKillUsed, winner, deathLog]);
+  }, [phase, players, roleConfig, night, currentStep, stepSelections, roleAssignments, lovers, witchHealUsed, witchKillUsed, renardPowerLost, winner, deathLog]);
 
   const handleUndo = useCallback(() => {
     const prev = undoStack.current.pop();
@@ -129,6 +147,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     setLovers(prev.lovers);
     setWitchHealUsed(prev.witchHealUsed);
     setWitchKillUsed(prev.witchKillUsed);
+    setRenardPowerLost(prev.renardPowerLost);
     setWinner(prev.winner);
     setDeathLog(prev.deathLog);
     setUndoCount(undoStack.current.length);
@@ -146,10 +165,10 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     const state: V2SavedState = {
       phase, players, roleConfig, night, currentStep,
       stepSelections, roleAssignments, lovers,
-      witchHealUsed, witchKillUsed, winner, deathLog,
+      witchHealUsed, witchKillUsed, renardPowerLost, winner, deathLog,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
-  }, [phase, players, roleConfig, night, currentStep, stepSelections, roleAssignments, lovers, witchHealUsed, witchKillUsed, winner, deathLog]);
+  }, [phase, players, roleConfig, night, currentStep, stepSelections, roleAssignments, lovers, witchHealUsed, witchKillUsed, renardPowerLost, winner, deathLog]);
 
   const alivePlayers = useMemo(() => players.filter((p) => p.isAlive), [players]);
 
@@ -157,14 +176,22 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   const nightCharacters = useMemo(
     () =>
       getNightCharactersForConfig(roleConfig, night).filter((c) =>
-        isRoleActive(c, roleAssignments, players)
+        isRoleActive(c, roleAssignments, players, renardPowerLost, roleConfig)
       ),
-    [roleConfig, night, roleAssignments, players]
+    [roleConfig, night, roleAssignments, players, renardPowerLost]
   );
 
   const currentChar = nightCharacters[currentStep];
   const currentSelection = stepSelections[currentChar?.id ?? ''] ?? [];
-  const currentAssigned = roleAssignments[currentChar?.id ?? ''] ?? [];
+  const currentRoleKey = currentChar?.configKey ?? currentChar?.id ?? '';
+  const currentAssigned = roleAssignments[currentRoleKey] ?? [];
+  // Loups-Garous: when loup-blanc is in config, assign one pool (wolves + blanc) in a single block
+  const currentRequiredCount =
+    currentChar?.id === 'loup-garou'
+      ? (roleConfig['loup-garou'] ?? 0) + (roleConfig['loup-blanc'] ?? 0)
+      : currentChar?.configKey
+        ? 0
+        : (roleConfig[currentChar?.id ?? ''] ?? 1);
 
   // Players already assigned to a different role — cannot be re-assigned
   const takenPlayerIds = useMemo(() => {
@@ -177,14 +204,32 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     return taken;
   }, [roleAssignments, currentChar]);
 
+  // Loup-blanc-solo: "assign who is white wolf" mode (night 2) before kill action
+  const loupBlancSoloAssignMode = useMemo(() => {
+    if (currentChar?.id !== 'loup-blanc-solo') return false;
+    const pool = roleAssignments['loup-garou'] ?? [];
+    const wolfCount = roleConfig['loup-garou'] ?? 0;
+    return (roleConfig['loup-blanc'] ?? 0) > 0 && (roleAssignments['loup-blanc'] ?? []).length === 0 && pool.length > wolfCount;
+  }, [currentChar?.id, roleConfig, roleAssignments]);
+
   // Exclude role-players from their own target list (wolves can't kill themselves,
   // voyante can't look at herself, etc.) — except Cupidon who can bind himself.
+  // Loup-blanc-solo can only target alive wolves (excluding himself).
   const targetPlayers = useMemo(() => {
     if (!currentChar || currentChar.id === 'cupidon') return alivePlayers;
-    const selfIds = new Set(roleAssignments[currentChar.id] ?? []);
+    const roleKey = currentChar.configKey ?? currentChar.id;
+    const selfIds = new Set(roleAssignments[roleKey] ?? []);
+    if (currentChar.id === 'loup-blanc-solo') {
+      const pool = roleAssignments['loup-garou'] ?? [];
+      const whiteWolfIds = new Set(roleAssignments['loup-blanc'] ?? []);
+      const wolfCount = roleConfig['loup-garou'] ?? 0;
+      const assignMode = whiteWolfIds.size === 0 && pool.length > wolfCount;
+      if (assignMode) return alivePlayers.filter((p) => pool.includes(p.id));
+      return alivePlayers.filter((p) => pool.includes(p.id) && !whiteWolfIds.has(p.id));
+    }
     if (selfIds.size === 0) return alivePlayers;
     return alivePlayers.filter((p) => !selfIds.has(p.id));
-  }, [currentChar, alivePlayers, roleAssignments]);
+  }, [currentChar, alivePlayers, roleAssignments, roleConfig]);
 
   // ── Setup ────────────────────────────────────────────────────────────────
   const handleSetupDone = useCallback((newPlayers: Player[]) => {
@@ -203,19 +248,21 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   // ── Role assignment ───────────────────────────────────────────────────────
   const handleToggleAssign = useCallback(
     (playerId: number) => {
-      if (!currentChar) return;
-      const required = roleConfig[currentChar.id] ?? 1;
+      if (!currentChar || currentChar.configKey) return; // sub-step roles don't assign
+      const roleId = currentChar.id;
+      const required =
+        roleId === 'loup-garou'
+          ? (roleConfig['loup-garou'] ?? 0) + (roleConfig['loup-blanc'] ?? 0)
+          : (roleConfig[roleId] ?? 1);
       setRoleAssignments((prev) => {
-        const current = prev[currentChar.id] ?? [];
+        const current = prev[roleId] ?? [];
         if (current.includes(playerId)) {
-          return { ...prev, [currentChar.id]: current.filter((id) => id !== playerId) };
+          return { ...prev, [roleId]: current.filter((id) => id !== playerId) };
         }
         if (current.length >= required) {
-          return required === 1
-            ? { ...prev, [currentChar.id]: [playerId] }
-            : prev;
+          return required === 1 ? { ...prev, [roleId]: [playerId] } : prev;
         }
-        return { ...prev, [currentChar.id]: [...current, playerId] };
+        return { ...prev, [roleId]: [...current, playerId] };
       });
     },
     [currentChar, roleConfig]
@@ -240,8 +287,36 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   const handleNext = useCallback(() => {
     pushUndo();
     if (currentChar?.id === 'sorciere') commitWitchPotions();
+    // Fox: if he picked 3 players and none is a wolf, he loses his power
+    if (currentChar?.id === 'renard') {
+      const sel = stepSelections['renard'] ?? [];
+      if (sel.length === 3) {
+        const wolfIds = new Set(roleAssignments['loup-garou'] ?? []);
+        const hasWolf = sel.some((id) => wolfIds.has(Number(id)));
+        if (!hasWolf) setRenardPowerLost(true);
+      }
+    }
+    // Loup-blanc-solo: first time (night 2) — commit "who is the white wolf" then stay on same step
+    if (currentChar?.id === 'loup-blanc-solo') {
+      const pool = roleAssignments['loup-garou'] ?? [];
+      const wolfCount = roleConfig['loup-garou'] ?? 0;
+      const needAssign = (roleConfig['loup-blanc'] ?? 0) > 0 && (roleAssignments['loup-blanc'] ?? []).length === 0 && pool.length > wolfCount;
+      if (needAssign) {
+        const sel = stepSelections['loup-blanc-solo'] ?? [];
+        if (sel.length === 1) {
+          const whiteWolfId = Number(sel[0]);
+          setRoleAssignments((prev) => ({
+            ...prev,
+            'loup-blanc': [whiteWolfId],
+            'loup-garou': (prev['loup-garou'] ?? []).filter((id) => id !== whiteWolfId),
+          }));
+          setStepSelections((prev) => ({ ...prev, 'loup-blanc-solo': [] }));
+          return;
+        }
+      }
+    }
     setCurrentStep((s) => s + 1);
-  }, [pushUndo, currentChar, commitWitchPotions]);
+  }, [pushUndo, currentChar, commitWitchPotions, stepSelections, roleAssignments, roleConfig]);
 
   const handleWakeVillage = useCallback(() => {
     pushUndo();
@@ -270,11 +345,13 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
       const loverIds = new Set(currentLovers ?? []);
 
       const entries: DeathEntry[] = [];
+      const loupBlancSoloId = (stepSelections['loup-blanc-solo'] ?? [])[0] ? Number((stepSelections['loup-blanc-solo'] ?? [])[0]) : null;
       for (const id of deathIds) {
         const player = players.find((p) => p.id === id);
         if (!player) continue;
         let cause: DeathEntry['cause'] = 'loup-garou';
         if (witchKillId && Number(witchKillId) === id) cause = 'sorciere';
+        else if (loupBlancSoloId === id) cause = 'loup-blanc';
         else if (loverIds.has(id) && wolfVictimId !== String(id) && witchKillId !== String(id)) cause = 'amour';
         entries.push({ playerName: player.name, night, cause });
       }
@@ -335,6 +412,14 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     const sel = stepSelections['loup-garou'] ?? [];
     return sel.length > 0 ? Number(sel[0]) : null;
   }, [stepSelections]);
+
+  const renardWolfInGroup = useMemo(() => {
+    if (currentChar?.id !== 'renard') return undefined;
+    const sel = stepSelections['renard'] ?? [];
+    if (sel.length !== 3) return undefined;
+    const wolfIds = new Set(roleAssignments['loup-garou'] ?? []);
+    return sel.some((id) => wolfIds.has(Number(id)));
+  }, [currentChar?.id, stepSelections, roleAssignments]);
 
   const isNightPhase = phase === 'night' || phase === 'wake' || phase === 'day' || phase === 'dayResult';
   const isWinPhase = phase === 'win';
@@ -432,15 +517,18 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             selection={currentSelection}
             onSelectionChange={handleSelectionChange}
             assignedPlayerIds={currentAssigned}
-            requiredAssignCount={roleConfig[currentChar.id] ?? 1}
+            requiredAssignCount={currentRequiredCount}
             takenPlayerIds={takenPlayerIds}
             onToggleAssignPlayer={handleToggleAssign}
+            loupBlancSoloAssignMode={loupBlancSoloAssignMode}
+            wolfPoolIncludesLoupBlanc={currentChar?.id === 'loup-garou' && (roleConfig['loup-blanc'] ?? 0) > 0}
             onNext={handleNext}
             onWakeVillage={handleWakeVillage}
             wolfVictimId={wolfVictimId}
             witchHealUsed={witchHealUsed}
             witchKillUsed={witchKillUsed}
             lovers={lovers}
+            renardWolfInGroup={renardWolfInGroup}
           />
         )}
 

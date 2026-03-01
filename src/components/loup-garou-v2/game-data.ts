@@ -11,6 +11,12 @@ export interface Character {
   night1Only?: boolean;
   /** at most 1 of this role in the game */
   unique?: boolean;
+  /** only shown from this night (e.g. 2 = Nuit 2+) */
+  nightMin?: number;
+  /** only on even (2,4,6...) or odd (1,3,5...) nights */
+  nightParity?: 'even' | 'odd';
+  /** use another role's config count (for sub-steps like loup-blanc-solo) */
+  configKey?: string;
 }
 
 export const CHARACTERS: Character[] = [
@@ -45,6 +51,28 @@ export const CHARACTERS: Character[] = [
     maxTargets: 1,
   },
   {
+    id: 'loup-blanc',
+    name: 'Le Loup-Blanc',
+    image: '/images/loup-blanc.png',
+    team: 'solo',
+    wakeUpOrder: 0,
+    nightAction: "Se réveille avec les Loups-Garous. Une nuit sur deux (nuits 2, 4, 6...), il peut se réveiller seul pour tuer un Loup-Garou. Il veut être le seul survivant.",
+    maxTargets: 0,
+    unique: true,
+  },
+  {
+    id: 'loup-blanc-solo',
+    name: 'Le Loup-Blanc',
+    image: '/images/loup-blanc.png',
+    team: 'solo',
+    wakeUpOrder: 3.5,
+    nightAction: "Se réveille avec les Loups-Garous la nuit. Une nuit sur deux (nuits 2, 4, 6...), il peut se réveiller seul pour désigner un Loup-Garou à éliminer. Il veut être le seul survivant.",
+    maxTargets: 1,
+    nightMin: 2,
+    nightParity: 'even',
+    configKey: 'loup-blanc',
+  },
+  {
     id: 'sorciere',
     name: 'La Sorcière',
     image: '/images/sorciere.jpg',
@@ -53,6 +81,17 @@ export const CHARACTERS: Character[] = [
     nightAction: "La Sorcière se réveille. Montrez-lui la victime des loups. Elle peut utiliser sa potion de guérison (une fois) et/ou sa potion de mort (une fois).",
     maxTargets: -1,
     unique: true,
+  },
+  {
+    id: 'renard',
+    name: 'Le Renard',
+    image: '/images/fox.png',
+    team: 'village',
+    wakeUpOrder: 5,
+    nightAction: "Désigne un groupe de 3 joueurs. Le MDJ lui dit si au moins un loup est présent dans ce groupe. S'il n'y a pas de loup, le Renard perd son pouvoir pour le reste de la partie. (Nuit 2+)",
+    maxTargets: 3,
+    unique: true,
+    nightMin: 2,
   },
   {
     id: 'petite-fille',
@@ -89,8 +128,17 @@ export type RoleConfigV2 = Record<string, number>;
 
 export function getNightCharactersForConfig(config: RoleConfigV2, night = 1): Character[] {
   return CHARACTERS
-    .filter((c) => c.wakeUpOrder > 0 && (config[c.id] ?? 0) > 0)
+    .filter((c) => {
+      const count = (config[c.configKey ?? c.id] ?? 0) > 0;
+      return c.wakeUpOrder > 0 && count;
+    })
     .filter((c) => !c.night1Only || night === 1)
+    .filter((c) => c.nightMin == null || night >= c.nightMin)
+    .filter((c) => {
+      if (c.nightParity == null) return true;
+      if (c.nightParity === 'even') return night % 2 === 0;
+      return night % 2 === 1;
+    })
     .sort((a, b) => a.wakeUpOrder - b.wakeUpOrder);
 }
 
@@ -113,6 +161,18 @@ export const CHARACTER_COLORS: Record<string, { idle: string; selected: string }
     idle: 'border-red-800 bg-red-950/40 text-red-300',
     selected: 'bg-red-700 border-red-700 text-white',
   },
+  'loup-blanc': {
+    idle: 'border-gray-400 bg-gray-800/40 text-gray-300',
+    selected: 'bg-gray-500 border-gray-500 text-white',
+  },
+  'loup-blanc-solo': {
+    idle: 'border-gray-400 bg-gray-800/40 text-gray-300',
+    selected: 'bg-gray-500 border-gray-500 text-white',
+  },
+  renard: {
+    idle: 'border-amber-700 bg-amber-950/40 text-amber-300',
+    selected: 'bg-amber-600 border-amber-600 text-white',
+  },
 };
 
 /** Computes the set of player IDs who die this night. */
@@ -129,8 +189,12 @@ export function computeNightDeaths(
   const healed = witchSel.includes('__heal__');
   const witchKillId = witchSel.find((id) => id !== '__heal__');
 
+  const loupBlancSoloSel = stepSelections['loup-blanc-solo'] ?? [];
+  const loupBlancSoloVictimId = loupBlancSoloSel[0] ? Number(loupBlancSoloSel[0]) : null;
+
   if (wolfVictimId && !healed) deaths.add(wolfVictimId);
   if (witchKillId) deaths.add(Number(witchKillId));
+  if (loupBlancSoloVictimId) deaths.add(loupBlancSoloVictimId);
 
   // Lover chain
   if (lovers) {
