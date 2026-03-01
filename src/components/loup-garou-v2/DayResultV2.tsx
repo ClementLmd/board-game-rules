@@ -1,5 +1,5 @@
-import { Vote, Moon } from 'lucide-react';
-import type { DeathEntry } from './DeathHistoryPanel';
+import { Vote, Moon } from "lucide-react";
+import type { DeathEntry } from "./DeathHistoryPanel";
 
 interface DayResultV2Props {
   night: number;
@@ -7,9 +7,13 @@ interface DayResultV2Props {
   onNextNight: () => void;
 }
 
-export function DayResultV2({ night, dayDeaths, onNextNight }: DayResultV2Props) {
-  const villageDeath = dayDeaths.find((d) => d.cause === 'village');
-  const loverDeaths = dayDeaths.filter((d) => d.cause === 'amour');
+export function DayResultV2({
+  night,
+  dayDeaths,
+  onNextNight,
+}: DayResultV2Props) {
+  const villageDeath = dayDeaths.find((d) => d.cause === "village");
+  const loverDeaths = dayDeaths.filter((d) => d.cause === "amour");
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-4 py-8">
@@ -28,29 +32,35 @@ export function DayResultV2({ night, dayDeaths, onNextNight }: DayResultV2Props)
 
         {/* Day summary */}
         <div className="mb-6 rounded-lg border border-gray-800 bg-gray-900 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-100">Résumé du jour</h3>
+          <h3 className="text-sm font-semibold text-gray-100">
+            Résumé du jour
+          </h3>
 
           {dayDeaths.length === 0 ? (
-            <p className="text-sm text-gray-500">Personne n&apos;est éliminé ce jour.</p>
+            <p className="text-sm text-gray-500">
+              Personne n&apos;est éliminé ce jour.
+            </p>
           ) : (
             <>
               {villageDeath && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">Vote du village</span>
-                  <span className="font-medium text-yellow-400">{villageDeath.playerName} 💀</span>
+                  <span className="font-medium text-yellow-400">
+                    {villageDeath.playerName} 💀
+                  </span>
                 </div>
               )}
               {loverDeaths.length > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">Chagrin d&apos;amour</span>
                   <span className="font-medium text-pink-400">
-                    {loverDeaths.map((d) => d.playerName).join(', ')} 💔
+                    {loverDeaths.map((d) => d.playerName).join(", ")} 💔
                   </span>
                 </div>
               )}
               <div className="mt-1 rounded-md bg-red-900/20 px-3 py-2">
                 <p className="text-xs text-red-400">
-                  Mort(s) : {dayDeaths.map((d) => d.playerName).join(', ')}
+                  Mort(s) : {dayDeaths.map((d) => d.playerName).join(", ")}
                 </p>
               </div>
             </>

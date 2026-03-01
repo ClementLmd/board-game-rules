@@ -164,6 +164,34 @@ function RoleAssignSection({
   );
 }
 
+function NightActionCollapsible({ nightAction }: { nightAction: string }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Eye className="h-4 w-4 text-violet-400" />
+          <span className="text-sm font-semibold text-violet-400">
+            Action de nuit
+          </span>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="border-t border-gray-800 px-4 pb-4 pt-3">
+          <p className="text-sm leading-relaxed text-gray-300">{nightAction}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TargetButtons({
   character,
   alivePlayers,
@@ -351,7 +379,7 @@ export function CharacterCardV2({
     : [];
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-4 py-8">
+    <div className="flex flex-col items-center justify-start bg-gray-950 px-4 pt-20 pb-20">
       <div className="w-full max-w-sm">
         {/* Character Image */}
         <div className="relative mb-4 overflow-hidden rounded-xl border border-gray-800">
@@ -369,18 +397,8 @@ export function CharacterCardV2({
           </div>
         </div>
 
-        {/* Night Action */}
-        <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Eye className="h-4 w-4 text-violet-400" />
-            <h3 className="text-sm font-semibold text-violet-400">
-              Action de nuit
-            </h3>
-          </div>
-          <p className="text-sm leading-relaxed text-gray-300">
-            {character.nightAction}
-          </p>
-        </div>
+        {/* Night Action — déroulant */}
+        <NightActionCollapsible nightAction={character.nightAction} />
 
         {/* Role assignment (hidden for sub-step roles like loup-blanc-solo) */}
         {requiredAssignCount > 0 && (
