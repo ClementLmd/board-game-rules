@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { ChevronRight, Sun, Eye, UserCheck } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { ChevronRight, Sun, Eye, UserCheck, ChevronDown } from 'lucide-react';
 import type { Character, Player } from './game-data';
 import { CHARACTER_COLORS } from './game-data';
 
@@ -18,6 +18,8 @@ interface CharacterCardV2Props {
   // Role assignment
   assignedPlayerIds: number[];
   requiredAssignCount: number;
+  /** Player IDs already assigned to another role */
+  takenPlayerIds: Set<number>;
   onToggleAssignPlayer: (playerId: number) => void;
   // Navigation
   onNext: () => void;
@@ -43,59 +45,100 @@ function TeamBadge({ team }: { team: Character['team'] }) {
   );
 }
 
-/** Role assignment panel — shown until required count is reached */
+/** Role assignment panel — collapses to a summary pill once complete */
 function RoleAssignSection({
   character,
   allPlayers,
   assignedPlayerIds,
   requiredAssignCount,
+  takenPlayerIds,
   onToggle,
 }: {
   character: Character;
   allPlayers: Player[];
   assignedPlayerIds: number[];
   requiredAssignCount: number;
+  /** IDs already assigned to a different role — cannot be picked here */
+  takenPlayerIds: Set<number>;
   onToggle: (id: number) => void;
 }) {
   const isComplete = assignedPlayerIds.length >= requiredAssignCount;
+  const [open, setOpen] = useState(!isComplete);
+
+  const assignedNames = assignedPlayerIds
+    .map((id) => allPlayers.find((p) => p.id === id)?.name ?? '?')
+    .join(', ');
 
   return (
-    <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-4">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
+      {/* Header — always visible, toggles open/closed */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
         <div className="flex items-center gap-2">
-          <UserCheck className="h-4 w-4 text-amber-400" />
-          <h3 className="text-sm font-semibold text-amber-400">Attribution du rôle</h3>
+          <UserCheck className={`h-4 w-4 ${isComplete ? 'text-emerald-400' : 'text-amber-400'}`} />
+          <span className={`text-sm font-semibold ${isComplete ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {isComplete ? assignedNames : 'Attribution du rôle'}
+          </span>
         </div>
-        <span className={`text-xs font-medium ${isComplete ? 'text-emerald-400' : 'text-gray-500'}`}>
-          {assignedPlayerIds.length}/{requiredAssignCount}
-          {isComplete ? ' ✓' : ''}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {allPlayers.map((p) => {
-          const isAssigned = assignedPlayerIds.includes(p.id);
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => onToggle(p.id)}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                isAssigned
-                  ? 'border-amber-600 bg-amber-600 text-white'
-                  : p.isAlive
-                  ? 'border-gray-700 bg-gray-800 text-gray-200 hover:border-amber-700 hover:text-amber-300'
-                  : 'border-gray-800 bg-gray-900 text-gray-600 line-through'
-              }`}
-            >
-              {p.name}
-            </button>
-          );
-        })}
-      </div>
-      {!isComplete && (
-        <p className="mt-3 text-xs text-gray-500">
-          Choisissez {requiredAssignCount === 1 ? 'le joueur qui a ce rôle' : `les ${requiredAssignCount} joueurs qui ont ce rôle`} avant de continuer.
-        </p>
+        <div className="flex items-center gap-2">
+          {!isComplete && (
+            <span className="text-xs font-medium text-gray-500">
+              {assignedPlayerIds.length}/{requiredAssignCount}
+            </span>
+          )}
+          <ChevronDown
+            className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          />
+        </div>
+      </button>
+
+      {/* Expandable body */}
+      {open && (
+        <div className="border-t border-gray-800 px-4 pb-4 pt-3">
+          <div className="flex flex-wrap gap-2">
+            {allPlayers.map((p) => {
+              const isAssigned = assignedPlayerIds.includes(p.id);
+              const isTaken = !isAssigned && takenPlayerIds.has(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={isTaken}
+                  onClick={() => {
+                    onToggle(p.id);
+                    // Auto-collapse once the last required slot is filled
+                    if (!isAssigned && assignedPlayerIds.length + 1 >= requiredAssignCount) {
+                      setOpen(false);
+                    }
+                  }}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    isAssigned
+                      ? 'border-amber-600 bg-amber-600 text-white'
+                      : isTaken
+                      ? 'cursor-not-allowed border-gray-800 bg-gray-900 text-gray-600 line-through'
+                      : p.isAlive
+                      ? 'border-gray-700 bg-gray-800 text-gray-200 hover:border-amber-700 hover:text-amber-300'
+                      : 'border-gray-800 bg-gray-900 text-gray-600 line-through'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              );
+            })}
+          </div>
+          {!isComplete && (
+            <p className="mt-3 text-xs text-gray-500">
+              Choisissez{' '}
+              {requiredAssignCount === 1
+                ? 'le joueur qui a ce rôle'
+                : `les ${requiredAssignCount} joueurs qui ont ce rôle`}{' '}
+              avant de continuer.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -261,6 +304,7 @@ export function CharacterCardV2({
   onSelectionChange,
   assignedPlayerIds,
   requiredAssignCount,
+  takenPlayerIds,
   onToggleAssignPlayer,
   onNext,
   onWakeVillage,
@@ -309,6 +353,7 @@ export function CharacterCardV2({
           allPlayers={allPlayers}
           assignedPlayerIds={assignedPlayerIds}
           requiredAssignCount={requiredAssignCount}
+          takenPlayerIds={takenPlayerIds}
           onToggle={onToggleAssignPlayer}
         />
 

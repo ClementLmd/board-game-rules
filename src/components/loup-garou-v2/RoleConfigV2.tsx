@@ -57,7 +57,7 @@ export function RoleConfigV2({ playerCount, onStart }: RoleConfigV2Props) {
   }, [config, isValid, villageois, onStart]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-4 py-8">
+    <div className="flex min-h-screen flex-col items-center justify-start bg-gray-950 px-4 pt-6 pb-8">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <h2 className="text-xl font-bold text-gray-100">Composition de la partie</h2>

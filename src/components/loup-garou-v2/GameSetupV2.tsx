@@ -48,9 +48,9 @@ export function GameSetupV2({ onStart }: GameSetupV2Props) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-8 bg-gray-950">
+    <div className="flex min-h-screen flex-col items-center justify-start px-4 pt-8 pb-8 bg-gray-950">
       <div className="w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center gap-3">
+        <div className="mb-6 flex flex-col items-center gap-3">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-900/30 ring-2 ring-violet-700/40">
             <Moon className="h-8 w-8 text-violet-400" />
           </div>

@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Users } from 'lucide-react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Users, Skull, Undo2, RefreshCw } from 'lucide-react';
 import {
   getNightCharactersForConfig,
   computeNightDeaths,
@@ -13,8 +13,41 @@ import { CharacterCardV2 } from './CharacterCardV2';
 import { PlayerRecapV2 } from './PlayerRecapV2';
 import { VillageWakeV2 } from './VillageWakeV2';
 import { DayPhaseV2 } from './DayPhaseV2';
+import { WinScreenV2 } from './WinScreenV2';
+import { DeathHistoryPanel, type DeathEntry } from './DeathHistoryPanel';
 
-type Phase = 'setup' | 'roleConfig' | 'night' | 'wake' | 'day';
+type Phase = 'setup' | 'roleConfig' | 'night' | 'wake' | 'day' | 'win';
+type Winner = 'wolves' | 'village';
+
+const STORAGE_KEY = 'loup-garou-v2';
+
+interface V2SavedState {
+  phase: Phase;
+  players: Player[];
+  roleConfig: RoleConfigV2;
+  night: number;
+  currentStep: number;
+  stepSelections: Record<string, string[]>;
+  roleAssignments: Record<string, number[]>;
+  lovers: [number, number] | null;
+  witchHealUsed: boolean;
+  witchKillUsed: boolean;
+  winner: Winner | null;
+  deathLog: DeathEntry[];
+}
+
+function loadSaved(): Partial<V2SavedState> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as Partial<V2SavedState>;
+  } catch { /* ignore */ }
+  return {};
+}
+
+function clearSaved() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+}
 
 interface GameMasterV2Props {
   onNewGame: () => void;
@@ -31,23 +64,89 @@ function isRoleActive(
   return assigned.some((id) => players.find((p) => p.id === id)?.isAlive);
 }
 
-export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
-  const [phase, setPhase] = useState<Phase>('setup');
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [roleConfig, setRoleConfig] = useState<RoleConfigV2>({});
-  const [night, setNight] = useState(1);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [recapOpen, setRecapOpen] = useState(false);
+/**
+ * Returns the winner if a win condition is met, or null to continue.
+ * Village wins when no wolves are alive; wolves win when no non-wolves are alive.
+ */
+function checkWin(
+  players: Player[],
+  roleAssignments: Record<string, number[]>
+): Winner | null {
+  const wolfIds = new Set(roleAssignments['loup-garou'] ?? []);
+  const alive = players.filter((p) => p.isAlive);
+  const aliveWolves = alive.filter((p) => wolfIds.has(p.id));
+  const aliveVillagers = alive.filter((p) => !wolfIds.has(p.id));
+  if (aliveWolves.length === 0) return 'village';
+  if (aliveVillagers.length === 0) return 'wolves';
+  return null;
+}
 
-  /** Target selections for the current night, keyed by character id */
-  const [stepSelections, setStepSelections] = useState<Record<string, string[]>>({});
-  /** Which player IDs are assigned to each role, persists across nights */
-  const [roleAssignments, setRoleAssignments] = useState<Record<string, number[]>>({});
-  /** Cupidon's lovers, set on night 1, persists for the whole game */
-  const [lovers, setLovers] = useState<[number, number] | null>(null);
-  /** Witch potion flags, persists */
-  const [witchHealUsed, setWitchHealUsed] = useState(false);
-  const [witchKillUsed, setWitchKillUsed] = useState(false);
+export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
+  const [saved] = useState(loadSaved);
+
+  const [phase, setPhase] = useState<Phase>(saved.phase ?? 'setup');
+  const [players, setPlayers] = useState<Player[]>(saved.players ?? []);
+  const [roleConfig, setRoleConfig] = useState<RoleConfigV2>(saved.roleConfig ?? {});
+  const [night, setNight] = useState(saved.night ?? 1);
+  const [currentStep, setCurrentStep] = useState(saved.currentStep ?? 0);
+  const [stepSelections, setStepSelections] = useState<Record<string, string[]>>(saved.stepSelections ?? {});
+  const [roleAssignments, setRoleAssignments] = useState<Record<string, number[]>>(saved.roleAssignments ?? {});
+  const [lovers, setLovers] = useState<[number, number] | null>(saved.lovers ?? null);
+  const [witchHealUsed, setWitchHealUsed] = useState(saved.witchHealUsed ?? false);
+  const [witchKillUsed, setWitchKillUsed] = useState(saved.witchKillUsed ?? false);
+  const [winner, setWinner] = useState<Winner | null>(saved.winner ?? null);
+  const [deathLog, setDeathLog] = useState<DeathEntry[]>(saved.deathLog ?? []);
+  const [recapOpen, setRecapOpen] = useState(false);
+  const [deathHistoryOpen, setDeathHistoryOpen] = useState(false);
+
+  // ── Undo stack ─────────────────────────────────────────────────────────────
+  const undoStack = useRef<V2SavedState[]>([]);
+  const [undoCount, setUndoCount] = useState(0);
+
+  const pushUndo = useCallback(() => {
+    undoStack.current.push({
+      phase, players, roleConfig, night, currentStep,
+      stepSelections, roleAssignments, lovers,
+      witchHealUsed, witchKillUsed, winner, deathLog,
+    });
+    if (undoStack.current.length > 20) undoStack.current.shift();
+    setUndoCount(undoStack.current.length);
+  }, [phase, players, roleConfig, night, currentStep, stepSelections, roleAssignments, lovers, witchHealUsed, witchKillUsed, winner, deathLog]);
+
+  const handleUndo = useCallback(() => {
+    const prev = undoStack.current.pop();
+    if (!prev) return;
+    setPhase(prev.phase);
+    setPlayers(prev.players);
+    setRoleConfig(prev.roleConfig);
+    setNight(prev.night);
+    setCurrentStep(prev.currentStep);
+    setStepSelections(prev.stepSelections);
+    setRoleAssignments(prev.roleAssignments);
+    setLovers(prev.lovers);
+    setWitchHealUsed(prev.witchHealUsed);
+    setWitchKillUsed(prev.witchKillUsed);
+    setWinner(prev.winner);
+    setDeathLog(prev.deathLog);
+    setUndoCount(undoStack.current.length);
+  }, []);
+
+  const handleNewGame = useCallback(() => {
+    clearSaved();
+    undoStack.current = [];
+    setUndoCount(0);
+    onNewGame();
+  }, [onNewGame]);
+
+  // Persist to localStorage whenever relevant state changes
+  useEffect(() => {
+    const state: V2SavedState = {
+      phase, players, roleConfig, night, currentStep,
+      stepSelections, roleAssignments, lovers,
+      witchHealUsed, witchKillUsed, winner, deathLog,
+    };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+  }, [phase, players, roleConfig, night, currentStep, stepSelections, roleAssignments, lovers, witchHealUsed, witchKillUsed, winner, deathLog]);
 
   const alivePlayers = useMemo(() => players.filter((p) => p.isAlive), [players]);
 
@@ -64,13 +163,24 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   const currentSelection = stepSelections[currentChar?.id ?? ''] ?? [];
   const currentAssigned = roleAssignments[currentChar?.id ?? ''] ?? [];
 
-  // For wolves: exclude themselves from targets
-  const targetPlayers = useMemo(() => {
-    if (currentChar?.id === 'loup-garou') {
-      const wolfIds = new Set(roleAssignments['loup-garou'] ?? []);
-      return alivePlayers.filter((p) => !wolfIds.has(p.id));
+  // Players already assigned to a different role — cannot be re-assigned
+  const takenPlayerIds = useMemo(() => {
+    const taken = new Set<number>();
+    for (const [roleId, ids] of Object.entries(roleAssignments)) {
+      if (roleId !== currentChar?.id) {
+        for (const id of ids) taken.add(id);
+      }
     }
-    return alivePlayers;
+    return taken;
+  }, [roleAssignments, currentChar]);
+
+  // Exclude role-players from their own target list (wolves can't kill themselves,
+  // voyante can't look at herself, etc.) — except Cupidon who can bind himself.
+  const targetPlayers = useMemo(() => {
+    if (!currentChar || currentChar.id === 'cupidon') return alivePlayers;
+    const selfIds = new Set(roleAssignments[currentChar.id] ?? []);
+    if (selfIds.size === 0) return alivePlayers;
+    return alivePlayers.filter((p) => !selfIds.has(p.id));
   }, [currentChar, alivePlayers, roleAssignments]);
 
   // ── Setup ────────────────────────────────────────────────────────────────
@@ -125,58 +235,92 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   }, [stepSelections]);
 
   const handleNext = useCallback(() => {
+    pushUndo();
     if (currentChar?.id === 'sorciere') commitWitchPotions();
     setCurrentStep((s) => s + 1);
-  }, [currentChar, commitWitchPotions]);
+  }, [pushUndo, currentChar, commitWitchPotions]);
 
   const handleWakeVillage = useCallback(() => {
+    pushUndo();
     if (currentChar?.id === 'sorciere') commitWitchPotions();
 
-    // Commit cupidon lovers from night 1
-    if (!lovers) {
-      const cupidonSel = stepSelections['cupidon'] ?? [];
-      if (cupidonSel.length === 2) {
-        setLovers([Number(cupidonSel[0]), Number(cupidonSel[1])]);
-      }
-    }
+    // Resolve cupidon lovers — compute the value synchronously so it's available
+    // for death calculations in the same tick (setLovers is async)
+    const cupidonSel = stepSelections['cupidon'] ?? [];
+    const currentLovers: [number, number] | null =
+      lovers ?? (cupidonSel.length === 2
+        ? [Number(cupidonSel[0]), Number(cupidonSel[1])]
+        : null);
+    if (!lovers && currentLovers) setLovers(currentLovers);
 
-    // Apply night deaths to players
-    const deathIds = computeNightDeaths(stepSelections, lovers);
+    // Apply night deaths using the resolved lovers value
+    const deathIds = computeNightDeaths(stepSelections, currentLovers);
+    const nextPlayers = deathIds.size > 0
+      ? players.map((p) => (deathIds.has(p.id) ? { ...p, isAlive: false } : p))
+      : players;
+    setPlayers(nextPlayers);
+
     if (deathIds.size > 0) {
-      setPlayers((prev) =>
-        prev.map((p) => (deathIds.has(p.id) ? { ...p, isAlive: false } : p))
-      );
+      const wolfVictimId = (stepSelections['loup-garou'] ?? [])[0];
+      const witchSel = stepSelections['sorciere'] ?? [];
+      const witchKillId = witchSel.find((id) => id !== '__heal__');
+      const loverIds = new Set(currentLovers ?? []);
+
+      const entries: DeathEntry[] = [];
+      for (const id of deathIds) {
+        const player = players.find((p) => p.id === id);
+        if (!player) continue;
+        let cause: DeathEntry['cause'] = 'loup-garou';
+        if (witchKillId && Number(witchKillId) === id) cause = 'sorciere';
+        else if (loverIds.has(id) && wolfVictimId !== String(id) && witchKillId !== String(id)) cause = 'amour';
+        entries.push({ playerName: player.name, night, cause });
+      }
+      setDeathLog((prev) => [...prev, ...entries]);
     }
 
-    setPhase('wake');
-  }, [currentChar, commitWitchPotions, lovers, stepSelections]);
+    const w = checkWin(nextPlayers, roleAssignments);
+    if (w) { setWinner(w); setPhase('win'); }
+    else setPhase('wake');
+  }, [pushUndo, currentChar, commitWitchPotions, lovers, stepSelections, players, roleAssignments, night]);
 
   // ── Day voting ────────────────────────────────────────────────────────────
   const handleDayPhase = useCallback(() => {
+    pushUndo();
     setPhase('day');
-  }, []);
+  }, [pushUndo]);
 
   const handleDayElimination = useCallback(
     (playerId: number | null) => {
+      pushUndo();
+      let nextPlayers = players;
       if (playerId !== null) {
-        // Apply day death + lover chain
-        const directDeath = new Set([playerId]);
-        if (lovers) {
-          if (lovers[0] === playerId || lovers[1] === playerId) {
-            directDeath.add(lovers[0]);
-            directDeath.add(lovers[1]);
-          }
+        const deathSet = new Set([playerId]);
+        if (lovers && (lovers[0] === playerId || lovers[1] === playerId)) {
+          deathSet.add(lovers[0]);
+          deathSet.add(lovers[1]);
         }
-        setPlayers((prev) =>
-          prev.map((p) => (directDeath.has(p.id) ? { ...p, isAlive: false } : p))
-        );
+        nextPlayers = players.map((p) => (deathSet.has(p.id) ? { ...p, isAlive: false } : p));
+        setPlayers(nextPlayers);
+
+        const entries: DeathEntry[] = [];
+        for (const id of deathSet) {
+          const player = players.find((p) => p.id === id);
+          if (!player) continue;
+          const cause: DeathEntry['cause'] = id === playerId ? 'village' : 'amour';
+          entries.push({ playerName: player.name, night, cause });
+        }
+        setDeathLog((prev) => [...prev, ...entries]);
       }
+
       setStepSelections({});
       setCurrentStep(0);
       setNight((n) => n + 1);
-      setPhase('night');
+
+      const w = checkWin(nextPlayers, roleAssignments);
+      if (w) { setWinner(w); setPhase('win'); }
+      else setPhase('night');
     },
-    [lovers]
+    [pushUndo, players, lovers, roleAssignments, night]
   );
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -186,12 +330,13 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   }, [stepSelections]);
 
   const isNightPhase = phase === 'night' || phase === 'wake' || phase === 'day';
+  const isWinPhase = phase === 'win';
 
   return (
     <div className="relative min-h-screen bg-gray-950">
       {/* Top Bar */}
       {isNightPhase && (
-        <div className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between border-b border-gray-800 bg-gray-900/90 px-4 py-3 backdrop-blur-md">
+        <div className="fixed left-0 right-0 top-16 z-40 flex items-center justify-between border-b border-gray-800 bg-gray-900/90 px-4 py-3 backdrop-blur-md">
           <div className="flex items-center gap-3">
             {phase === 'night' && currentChar && (
               <>
@@ -217,23 +362,38 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
               </p>
             )}
           </div>
-          <button
-            onClick={() => setRecapOpen(true)}
-            className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-100 transition-colors hover:bg-gray-700"
-            aria-label="Voir les joueurs"
-          >
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Joueurs</span>
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-900/50 px-1 text-xs font-bold text-violet-400">
-              {alivePlayers.length}
-            </span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDeathHistoryOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-100 transition-colors hover:bg-gray-700"
+              aria-label="Historique des morts"
+            >
+              <Skull className="h-4 w-4 text-red-400" />
+              <span className="hidden sm:inline">Morts</span>
+              {deathLog.length > 0 && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-900/50 px-1 text-xs font-bold text-red-400">
+                  {deathLog.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setRecapOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-100 transition-colors hover:bg-gray-700"
+              aria-label="Voir les joueurs vivants"
+            >
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Vivants</span>
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-900/50 px-1 text-xs font-bold text-violet-400">
+                {alivePlayers.length}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
       {/* Step Progress Bar */}
       {phase === 'night' && nightCharacters.length > 0 && (
-        <div className="fixed left-0 right-0 top-[57px] z-30 h-0.5 bg-gray-800">
+        <div className="fixed left-0 right-0 top-[121px] z-30 h-0.5 bg-gray-800">
           <div
             className="h-full bg-violet-600 transition-all duration-500"
             style={{ width: `${((currentStep + 1) / nightCharacters.length) * 100}%` }}
@@ -241,8 +401,8 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className={isNightPhase ? 'pt-[60px]' : ''}>
+      {/* Main Content — pb-16 leaves room for the fixed bottom bar */}
+      <div className={isNightPhase ? 'pb-16' : ''}>
         {phase === 'setup' && <GameSetupV2 onStart={handleSetupDone} />}
 
         {phase === 'roleConfig' && (
@@ -261,6 +421,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             onSelectionChange={handleSelectionChange}
             assignedPlayerIds={currentAssigned}
             requiredAssignCount={roleConfig[currentChar.id] ?? 1}
+            takenPlayerIds={takenPlayerIds}
             onToggleAssignPlayer={handleToggleAssign}
             onNext={handleNext}
             onWakeVillage={handleWakeVillage}
@@ -277,7 +438,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             stepSelections={stepSelections}
             lovers={lovers}
             onDayPhase={handleDayPhase}
-            onRestart={onNewGame}
+            onRestart={handleNewGame}
           />
         )}
 
@@ -289,12 +450,46 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         )}
       </div>
 
-      {/* Recap Panel */}
+      {/* Fixed bottom bar — undo + new game */}
+      {isNightPhase && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-2 border-t border-gray-800 bg-gray-900/95 px-4 py-2 backdrop-blur-md">
+          <button
+            onClick={handleUndo}
+            disabled={undoCount === 0}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            Annuler
+          </button>
+          <button
+            onClick={handleNewGame}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Nouvelle partie
+          </button>
+        </div>
+      )}
+
+      {/* Win screen — rendered outside the padded container, full screen */}
+      {isWinPhase && winner && (
+        <WinScreenV2 winner={winner} onRestart={handleNewGame} />
+      )}
+
+      {/* Alive players panel */}
       <PlayerRecapV2
         players={players}
         lovers={lovers}
+        roleAssignments={roleAssignments}
         isOpen={recapOpen}
         onClose={() => setRecapOpen(false)}
+      />
+
+      {/* Death history panel */}
+      <DeathHistoryPanel
+        deaths={deathLog}
+        isOpen={deathHistoryOpen}
+        onClose={() => setDeathHistoryOpen(false)}
       />
     </div>
   );
