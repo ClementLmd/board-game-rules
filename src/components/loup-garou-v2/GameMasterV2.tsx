@@ -13,10 +13,11 @@ import { CharacterCardV2 } from './CharacterCardV2';
 import { PlayerRecapV2 } from './PlayerRecapV2';
 import { VillageWakeV2 } from './VillageWakeV2';
 import { DayPhaseV2 } from './DayPhaseV2';
+import { DayResultV2 } from './DayResultV2';
 import { WinScreenV2 } from './WinScreenV2';
 import { DeathHistoryPanel, type DeathEntry } from './DeathHistoryPanel';
 
-type Phase = 'setup' | 'roleConfig' | 'night' | 'wake' | 'day' | 'win';
+type Phase = 'setup' | 'roleConfig' | 'night' | 'wake' | 'day' | 'dayResult' | 'win';
 type Winner = 'wolves' | 'village';
 
 const STORAGE_KEY = 'loup-garou-v2';
@@ -98,6 +99,8 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   const [deathLog, setDeathLog] = useState<DeathEntry[]>(saved.deathLog ?? []);
   const [recapOpen, setRecapOpen] = useState(false);
   const [deathHistoryOpen, setDeathHistoryOpen] = useState(false);
+  /** Deaths from the last day vote — shown on dayResult screen */
+  const [dayResultDeaths, setDayResultDeaths] = useState<DeathEntry[]>([]);
 
   // ── Undo stack ─────────────────────────────────────────────────────────────
   const undoStack = useRef<V2SavedState[]>([]);
@@ -293,6 +296,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     (playerId: number | null) => {
       pushUndo();
       let nextPlayers = players;
+      const entries: DeathEntry[] = [];
       if (playerId !== null) {
         const deathSet = new Set([playerId]);
         if (lovers && (lovers[0] === playerId || lovers[1] === playerId)) {
@@ -301,8 +305,6 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         }
         nextPlayers = players.map((p) => (deathSet.has(p.id) ? { ...p, isAlive: false } : p));
         setPlayers(nextPlayers);
-
-        const entries: DeathEntry[] = [];
         for (const id of deathSet) {
           const player = players.find((p) => p.id === id);
           if (!player) continue;
@@ -311,17 +313,22 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         }
         setDeathLog((prev) => [...prev, ...entries]);
       }
+      setDayResultDeaths(entries);
 
       setStepSelections({});
       setCurrentStep(0);
-      setNight((n) => n + 1);
 
       const w = checkWin(nextPlayers, roleAssignments);
       if (w) { setWinner(w); setPhase('win'); }
-      else setPhase('night');
+      else setPhase('dayResult');
     },
     [pushUndo, players, lovers, roleAssignments, night]
   );
+
+  const handleNextNight = useCallback(() => {
+    setNight((n) => n + 1);
+    setPhase('night');
+  }, []);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const wolfVictimId = useMemo(() => {
@@ -329,7 +336,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     return sel.length > 0 ? Number(sel[0]) : null;
   }, [stepSelections]);
 
-  const isNightPhase = phase === 'night' || phase === 'wake' || phase === 'day';
+  const isNightPhase = phase === 'night' || phase === 'wake' || phase === 'day' || phase === 'dayResult';
   const isWinPhase = phase === 'win';
 
   return (
@@ -359,6 +366,11 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             {phase === 'day' && (
               <p className="text-sm font-semibold text-gray-100">
                 Phase de jour — Nuit {night}
+              </p>
+            )}
+            {phase === 'dayResult' && (
+              <p className="text-sm font-semibold text-gray-100">
+                Fin du jour — Nuit {night}
               </p>
             )}
           </div>
@@ -438,7 +450,6 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             stepSelections={stepSelections}
             lovers={lovers}
             onDayPhase={handleDayPhase}
-            onRestart={handleNewGame}
           />
         )}
 
@@ -446,6 +457,14 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
           <DayPhaseV2
             alivePlayers={alivePlayers}
             onEliminate={handleDayElimination}
+          />
+        )}
+
+        {phase === 'dayResult' && (
+          <DayResultV2
+            night={night}
+            dayDeaths={dayResultDeaths}
+            onNextNight={handleNextNight}
           />
         )}
       </div>

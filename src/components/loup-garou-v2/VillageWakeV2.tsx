@@ -1,4 +1,4 @@
-import { Sun, Vote, RotateCcw } from 'lucide-react';
+import { Sun, Vote } from 'lucide-react';
 import { computeNightDeaths, type Player } from './game-data';
 
 const HEAL_TOKEN = '__heal__';
@@ -8,7 +8,6 @@ interface VillageWakeV2Props {
   stepSelections: Record<string, string[]>;
   lovers: [number, number] | null;
   onDayPhase: () => void;
-  onRestart: () => void;
 }
 
 export function VillageWakeV2({
@@ -16,7 +15,6 @@ export function VillageWakeV2({
   stepSelections,
   lovers,
   onDayPhase,
-  onRestart,
 }: VillageWakeV2Props) {
   const playerById = new Map(players.map((p) => [String(p.id), p]));
 
@@ -94,22 +92,13 @@ export function VillageWakeV2({
           )}
         </div>
 
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={onDayPhase}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700"
-          >
-            <Vote className="h-4 w-4" />
-            Phase de jour — vote du village
-          </button>
-          <button
-            onClick={onRestart}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 py-2.5 text-sm font-medium text-gray-100 transition-colors hover:bg-gray-700 active:bg-gray-700"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Nouvelle partie
-          </button>
-        </div>
+        <button
+          onClick={onDayPhase}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700"
+        >
+          <Vote className="h-4 w-4" />
+          Phase de jour — vote du village
+        </button>
       </div>
     </div>
   );
