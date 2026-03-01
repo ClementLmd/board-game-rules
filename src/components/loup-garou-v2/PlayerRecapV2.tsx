@@ -1,67 +1,106 @@
-import { X, User, Heart } from 'lucide-react';
-import type { Player } from './game-data';
+import { X, Heart } from 'lucide-react';
+import { CHARACTERS, type Player } from './game-data';
 
 interface PlayerRecapV2Props {
   players: Player[];
   lovers: [number, number] | null;
+  roleAssignments: Record<string, number[]>;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function PlayerRecapV2({ players, lovers, isOpen, onClose }: PlayerRecapV2Props) {
+/** Build a map from player ID → role name using roleAssignments */
+function buildPlayerRoleMap(roleAssignments: Record<string, number[]>): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const [roleId, playerIds] of Object.entries(roleAssignments)) {
+    const char = CHARACTERS.find((c) => c.id === roleId);
+    if (!char) continue;
+    for (const id of playerIds) map.set(id, char.name);
+  }
+  return map;
+}
+
+export function PlayerRecapV2({ players, lovers, roleAssignments, isOpen, onClose }: PlayerRecapV2Props) {
   const loverSet = new Set(lovers ?? []);
+  const roleMap = buildPlayerRoleMap(roleAssignments);
+
   if (!isOpen) return null;
 
+  const alive = players.filter((p) => p.isAlive);
+  const dead = players.filter((p) => !p.isAlive);
+
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div
-        className="absolute inset-0 bg-gray-950/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative ml-auto flex h-full w-full max-w-sm flex-col border-l border-gray-800 bg-gray-900">
-        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-4">
-          <h2 className="text-lg font-bold text-gray-100">Joueurs</h2>
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-gray-950/70 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Bottom sheet */}
+      <div className="relative max-h-[65vh] flex flex-col rounded-t-2xl border-t border-gray-800 bg-gray-900">
+        {/* Handle + header */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-800/60">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-100">Joueurs vivants</span>
+            <span className="rounded-full bg-violet-900/50 px-2 py-0.5 text-xs font-bold text-violet-400">
+              {alive.length}/{players.length}
+            </span>
+          </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
+            className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
             aria-label="Fermer"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="flex flex-col gap-2">
-            {players.map((player) => (
-              <div
-                key={player.id}
-                className={`flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-800/50 px-3 py-3 ${
-                  !player.isAlive ? 'opacity-40' : ''
-                }`}
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-700">
-                  <User className="h-4 w-4 text-gray-400" />
-                </div>
-                <p className="min-w-0 flex-1 truncate text-sm font-medium text-gray-100">
-                  {player.name}
-                </p>
-                {loverSet.has(player.id) && (
-                  <Heart className="h-3.5 w-3.5 text-pink-400 shrink-0" />
-                )}
-                {!player.isAlive && (
-                  <span className="text-xs font-medium text-red-400">Mort</span>
-                )}
-              </div>
+        {/* Player list */}
+        <div className="flex-1 overflow-y-auto px-3 py-2">
+          <div className="flex flex-col gap-1">
+            {alive.map((p) => (
+              <PlayerRow key={p.id} player={p} role={roleMap.get(p.id)} isLover={loverSet.has(p.id)} alive />
             ))}
+            {dead.length > 0 && (
+              <>
+                <p className="mt-2 mb-1 px-1 text-[10px] font-semibold uppercase tracking-widest text-gray-600">
+                  Éliminés
+                </p>
+                {dead.map((p) => (
+                  <PlayerRow key={p.id} player={p} role={roleMap.get(p.id)} isLover={loverSet.has(p.id)} alive={false} />
+                ))}
+              </>
+            )}
           </div>
         </div>
-
-        <div className="border-t border-gray-800 px-4 py-3">
-          <p className="text-xs text-gray-400">
-            {players.filter((p) => p.isAlive).length} joueurs en vie · {players.length} total
-          </p>
-        </div>
       </div>
+    </div>
+  );
+}
+
+function PlayerRow({
+  player,
+  role,
+  isLover,
+  alive,
+}: {
+  player: Player;
+  role: string | undefined;
+  isLover: boolean;
+  alive: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
+        alive ? 'bg-gray-800/50' : 'opacity-40'
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-gray-100">{player.name}</p>
+        {role && (
+          <p className="text-xs text-gray-500">{role}</p>
+        )}
+      </div>
+      {isLover && <Heart className="h-3 w-3 shrink-0 text-pink-400" />}
+      {!alive && <span className="text-[10px] font-medium text-red-400">Mort</span>}
     </div>
   );
 }

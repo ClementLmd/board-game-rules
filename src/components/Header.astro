@@ -1,4 +1,9 @@
 ---
+interface Props {
+  dark?: boolean;
+}
+const { dark = false } = Astro.props;
+
 const navLinks = [
   { href: '/', label: 'Accueil' },
   { href: '/jeux/', label: 'Tous les jeux' },
@@ -6,17 +11,31 @@ const navLinks = [
 ];
 
 const currentPath = Astro.url.pathname;
+
+const headerClass = dark
+  ? 'bg-gray-950/95 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50'
+  : 'bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50';
+
+const logoTextClass = dark
+  ? 'font-bold text-lg text-gray-100 group-hover:text-violet-400 transition-colors'
+  : 'font-bold text-lg text-gray-900 group-hover:text-primary-600 transition-colors';
+
+const linkActive = dark ? 'bg-gray-800 text-gray-100' : 'bg-primary-50 text-primary-700';
+const linkIdle = dark
+  ? 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
+  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50';
+const mobileButtonClass = dark
+  ? 'md:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-800 transition-colors'
+  : 'md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors';
 ---
 
-<header class="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50" role="banner">
+<header class={headerClass} role="banner">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between h-16">
       <!-- Logo -->
       <a href="/" class="flex items-center gap-2 group">
         <span class="text-2xl">🎲</span>
-        <span class="font-bold text-lg text-gray-900 group-hover:text-primary-600 transition-colors">
-          Règles du Jeu
-        </span>
+        <span class={logoTextClass}>Règles du Jeu</span>
       </a>
 
       <!-- Desktop Nav -->
@@ -26,9 +45,7 @@ const currentPath = Astro.url.pathname;
             href={link.href}
             class:list={[
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-              currentPath === link.href
-                ? 'bg-primary-50 text-primary-700'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
+              currentPath === link.href ? linkActive : linkIdle,
             ]}
           >
             {link.label}
@@ -39,7 +56,7 @@ const currentPath = Astro.url.pathname;
       <!-- Mobile menu button -->
       <button
         id="mobile-menu-btn"
-        class="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+        class={mobileButtonClass}
         aria-label="Ouvrir le menu"
         aria-expanded="false"
       >
@@ -60,9 +77,7 @@ const currentPath = Astro.url.pathname;
             href={link.href}
             class:list={[
               'px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
-              currentPath === link.href
-                ? 'bg-primary-50 text-primary-700'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
+              currentPath === link.href ? linkActive : linkIdle,
             ]}
           >
             {link.label}
