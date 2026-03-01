@@ -343,7 +343,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     <div className="relative min-h-screen bg-gray-950">
       {/* Top Bar */}
       {isNightPhase && (
-        <div className="fixed left-0 right-0 top-16 z-40 flex items-center justify-between border-b border-gray-800 bg-gray-900/90 px-4 py-3 backdrop-blur-md">
+        <div className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between border-b border-gray-800 bg-gray-900/90 px-4 py-3 backdrop-blur-md">
           <div className="flex items-center gap-3">
             {phase === 'night' && currentChar && (
               <>
@@ -405,7 +405,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
 
       {/* Step Progress Bar */}
       {phase === 'night' && nightCharacters.length > 0 && (
-        <div className="fixed left-0 right-0 top-[121px] z-30 h-0.5 bg-gray-800">
+        <div className="fixed left-0 right-0 top-[57px] z-30 h-0.5 bg-gray-800">
           <div
             className="h-full bg-violet-600 transition-all duration-500"
             style={{ width: `${((currentStep + 1) / nightCharacters.length) * 100}%` }}

@@ -10,6 +10,7 @@ interface Props {
   ogType?: string;
   hideFooter?: boolean;
   darkHeader?: boolean;
+  hideHeader?: boolean;
 }
 
 const {
@@ -19,6 +20,7 @@ const {
   ogType = 'website',
   hideFooter = false,
   darkHeader = false,
+  hideHeader = false,
 } = Astro.props;
 
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site);
@@ -61,7 +63,7 @@ const ogImageUrl = new URL(ogImage, Astro.site).href;
       Aller au contenu principal
     </a>
 
-    <Header dark={darkHeader} />
+    {!hideHeader && <Header dark={darkHeader} />}
     <main id="main-content" class="flex-1" tabindex="-1">
       <slot />
     </main>
