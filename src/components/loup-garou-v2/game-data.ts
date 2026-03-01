@@ -3,10 +3,14 @@ export interface Character {
   name: string;
   image: string;
   team: 'loups' | 'village' | 'solo';
-  powers: string;
   wakeUpOrder: number;
   nightAction: string;
-  targets: string;
+  /** max selectable targets; 0 = none; -1 = special (sorcière) */
+  maxTargets: number;
+  /** only shown on night 1 */
+  night1Only?: boolean;
+  /** at most 1 of this role in the game */
+  unique?: boolean;
 }
 
 export const CHARACTERS: Character[] = [
@@ -15,84 +19,129 @@ export const CHARACTERS: Character[] = [
     name: 'Cupidon',
     image: '/images/cupidon.jpg',
     team: 'village',
-    powers: "Désigne 2 amoureux qui devront se protéger mutuellement. Si l'un meurt, l'autre aussi.",
     wakeUpOrder: 1,
     nightAction: 'Cupidon se réveille et désigne 2 joueurs qui seront amoureux pour toute la partie.',
-    targets: '2 joueurs quelconques',
+    maxTargets: 2,
+    night1Only: true,
+    unique: true,
   },
   {
     id: 'voyante',
     name: 'La Voyante',
     image: '/images/voyante.jpg',
     team: 'village',
-    powers: "Chaque nuit, elle peut regarder la carte d'un joueur de son choix.",
     wakeUpOrder: 2,
-    nightAction:
-      "La Voyante se réveille. Elle désigne un joueur dont elle veut voir la carte. Montrez-lui la carte silencieusement.",
-    targets: '1 joueur vivant',
+    nightAction: "La Voyante se réveille. Elle désigne un joueur dont elle veut voir la carte. Montrez-lui la carte silencieusement.",
+    maxTargets: 1,
+    unique: true,
   },
   {
     id: 'loup-garou',
     name: 'Les Loups-Garous',
     image: '/images/loup-garou.jpg',
     team: 'loups',
-    powers: 'Chaque nuit, ils se réveillent ensemble et choisissent une victime à dévorer.',
     wakeUpOrder: 3,
-    nightAction:
-      'Les Loups-Garous se réveillent, se reconnaissent et désignent ensemble une victime à éliminer.',
-    targets: '1 joueur non-loup vivant',
+    nightAction: 'Les Loups-Garous se réveillent, se reconnaissent et désignent ensemble une victime à éliminer.',
+    maxTargets: 1,
   },
   {
     id: 'sorciere',
     name: 'La Sorcière',
     image: '/images/sorciere.jpg',
     team: 'village',
-    powers: "Possède 2 potions utilisables une seule fois : une de guérison et une d'empoisonnement.",
     wakeUpOrder: 4,
-    nightAction:
-      "La Sorcière se réveille. Montrez-lui la victime des loups. Elle peut utiliser sa potion de guérison et/ou sa potion de mort.",
-    targets: "Potion de vie : victime des loups | Potion de mort : 1 joueur vivant",
+    nightAction: "La Sorcière se réveille. Montrez-lui la victime des loups. Elle peut utiliser sa potion de guérison (une fois) et/ou sa potion de mort (une fois).",
+    maxTargets: -1,
+    unique: true,
   },
   {
     id: 'petite-fille',
     name: 'La Petite Fille',
     image: '/images/petite-fille.jpg',
     team: 'village',
-    powers: 'Peut espionner les Loups-Garous pendant leur réveil. Si elle se fait repérer, elle meurt.',
     wakeUpOrder: 0,
-    nightAction:
-      "La Petite Fille peut entrouvrir les yeux pendant le tour des Loups-Garous. Attention à ne pas se faire repérer !",
-    targets: 'Aucune action directe — observe les loups',
+    nightAction: "La Petite Fille peut entrouvrir les yeux pendant le tour des Loups-Garous.",
+    maxTargets: 0,
+    unique: true,
   },
   {
     id: 'chasseur',
     name: 'Le Chasseur',
     image: '/images/chasseur.jpg',
     team: 'village',
-    powers: "Quand il meurt, il emporte un joueur de son choix avec lui.",
     wakeUpOrder: 0,
     nightAction: "Le Chasseur n'a pas d'action de nuit. Son pouvoir se déclenche à sa mort.",
-    targets: '1 joueur vivant (à sa mort uniquement)',
+    maxTargets: 0,
+    unique: true,
   },
   {
     id: 'villageois',
     name: 'Villageois',
     image: '/images/villageois.jpg',
     team: 'village',
-    powers: "Aucun pouvoir spécial. Son arme : son vote et sa capacité à débattre.",
     wakeUpOrder: 0,
     nightAction: "Les Villageois n'ont pas d'action de nuit.",
-    targets: 'Aucun',
+    maxTargets: 0,
   },
 ];
 
-export const NIGHT_CHARACTERS = CHARACTERS.filter((c) => c.wakeUpOrder > 0).sort(
-  (a, b) => a.wakeUpOrder - b.wakeUpOrder
-);
+export type RoleConfigV2 = Record<string, number>;
+
+export function getNightCharactersForConfig(config: RoleConfigV2, night = 1): Character[] {
+  return CHARACTERS
+    .filter((c) => c.wakeUpOrder > 0 && (config[c.id] ?? 0) > 0)
+    .filter((c) => !c.night1Only || night === 1)
+    .sort((a, b) => a.wakeUpOrder - b.wakeUpOrder);
+}
 
 export interface Player {
   id: number;
   name: string;
-  role: Character | null;
   isAlive: boolean;
+}
+
+export const CHARACTER_COLORS: Record<string, { idle: string; selected: string }> = {
+  cupidon: {
+    idle: 'border-pink-800 bg-pink-950/40 text-pink-300',
+    selected: 'bg-pink-600 border-pink-600 text-white',
+  },
+  voyante: {
+    idle: 'border-violet-800 bg-violet-950/40 text-violet-300',
+    selected: 'bg-violet-600 border-violet-600 text-white',
+  },
+  'loup-garou': {
+    idle: 'border-red-800 bg-red-950/40 text-red-300',
+    selected: 'bg-red-700 border-red-700 text-white',
+  },
+};
+
+/** Computes the set of player IDs who die this night. */
+export function computeNightDeaths(
+  stepSelections: Record<string, string[]>,
+  lovers: [number, number] | null
+): Set<number> {
+  const deaths = new Set<number>();
+
+  const wolfSel = stepSelections['loup-garou'] ?? [];
+  const wolfVictimId = wolfSel[0] ? Number(wolfSel[0]) : null;
+
+  const witchSel = stepSelections['sorciere'] ?? [];
+  const healed = witchSel.includes('__heal__');
+  const witchKillId = witchSel.find((id) => id !== '__heal__');
+
+  if (wolfVictimId && !healed) deaths.add(wolfVictimId);
+  if (witchKillId) deaths.add(Number(witchKillId));
+
+  // Lover chain
+  if (lovers) {
+    for (const id of deaths) {
+      if (id === lovers[0] || id === lovers[1]) {
+        deaths.add(lovers[0]);
+        deaths.add(lovers[1]);
+        break;
+      }
+    }
+  }
+
+  return deaths;
 }

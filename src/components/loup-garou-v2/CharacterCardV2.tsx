@@ -1,15 +1,32 @@
-import { useState } from 'react';
-import { UserPlus, ChevronRight, Sun, Eye, Crosshair, Shield } from 'lucide-react';
+import { useCallback } from 'react';
+import { ChevronRight, Sun, Eye, UserCheck } from 'lucide-react';
 import type { Character, Player } from './game-data';
+import { CHARACTER_COLORS } from './game-data';
+
+const HEAL_TOKEN = '__heal__';
 
 interface CharacterCardV2Props {
   character: Character;
-  players: Player[];
+  allPlayers: Player[];
+  alivePlayers: Player[];
+  /** Filtered target list (e.g. wolves excluded for loup-garou card) */
+  targetPlayers: Player[];
   isLast: boolean;
-  onAssignRole: (playerId: number, character: Character) => void;
+  // Target selection
+  selection: string[];
+  onSelectionChange: (ids: string[]) => void;
+  // Role assignment
+  assignedPlayerIds: number[];
+  requiredAssignCount: number;
+  onToggleAssignPlayer: (playerId: number) => void;
+  // Navigation
   onNext: () => void;
   onWakeVillage: () => void;
-  witchPotions: { life: boolean; death: boolean };
+  // Witch/Cupidon context
+  wolfVictimId: number | null;
+  witchHealUsed: boolean;
+  witchKillUsed: boolean;
+  lovers: [number, number] | null;
 }
 
 function TeamBadge({ team }: { team: Character['team'] }) {
@@ -26,20 +43,242 @@ function TeamBadge({ team }: { team: Character['team'] }) {
   );
 }
 
-export function CharacterCardV2({
+/** Role assignment panel — shown until required count is reached */
+function RoleAssignSection({
   character,
-  players,
-  isLast,
-  onAssignRole,
-  onNext,
-  onWakeVillage,
-  witchPotions,
-}: CharacterCardV2Props) {
-  const [showAssign, setShowAssign] = useState(false);
-  const availablePlayers = players.filter((p) => !p.role || p.role.id === character.id);
+  allPlayers,
+  assignedPlayerIds,
+  requiredAssignCount,
+  onToggle,
+}: {
+  character: Character;
+  allPlayers: Player[];
+  assignedPlayerIds: number[];
+  requiredAssignCount: number;
+  onToggle: (id: number) => void;
+}) {
+  const isComplete = assignedPlayerIds.length >= requiredAssignCount;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-8 bg-gray-950">
+    <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <UserCheck className="h-4 w-4 text-amber-400" />
+          <h3 className="text-sm font-semibold text-amber-400">Attribution du rôle</h3>
+        </div>
+        <span className={`text-xs font-medium ${isComplete ? 'text-emerald-400' : 'text-gray-500'}`}>
+          {assignedPlayerIds.length}/{requiredAssignCount}
+          {isComplete ? ' ✓' : ''}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {allPlayers.map((p) => {
+          const isAssigned = assignedPlayerIds.includes(p.id);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onToggle(p.id)}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                isAssigned
+                  ? 'border-amber-600 bg-amber-600 text-white'
+                  : p.isAlive
+                  ? 'border-gray-700 bg-gray-800 text-gray-200 hover:border-amber-700 hover:text-amber-300'
+                  : 'border-gray-800 bg-gray-900 text-gray-600 line-through'
+              }`}
+            >
+              {p.name}
+            </button>
+          );
+        })}
+      </div>
+      {!isComplete && (
+        <p className="mt-3 text-xs text-gray-500">
+          Choisissez {requiredAssignCount === 1 ? 'le joueur qui a ce rôle' : `les ${requiredAssignCount} joueurs qui ont ce rôle`} avant de continuer.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TargetButtons({
+  character,
+  alivePlayers,
+  selection,
+  onSelectionChange,
+}: {
+  character: Character;
+  alivePlayers: Player[];
+  selection: string[];
+  onSelectionChange: (ids: string[]) => void;
+}) {
+  const colors = CHARACTER_COLORS[character.id];
+  const maxTargets = character.maxTargets;
+
+  const toggle = useCallback(
+    (id: string) => {
+      const selected = new Set(selection);
+      if (selected.has(id)) {
+        selected.delete(id);
+        return onSelectionChange([...selected]);
+      }
+      if (maxTargets === 1) return onSelectionChange([id]);
+      if (selected.size < maxTargets) {
+        selected.add(id);
+        onSelectionChange([...selected]);
+      }
+    },
+    [selection, maxTargets, onSelectionChange]
+  );
+
+  if (!colors || maxTargets === 0) return null;
+
+  const label =
+    maxTargets === 1
+      ? 'Choisir 1 joueur'
+      : `Choisir ${maxTargets} joueurs (${selection.length}/${maxTargets})`;
+
+  return (
+    <div className="mb-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {alivePlayers.map((p) => {
+          const isSelected = selection.includes(String(p.id));
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => toggle(String(p.id))}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                isSelected ? colors.selected : colors.idle
+              }`}
+            >
+              {p.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WitchTargets({
+  allPlayers,
+  alivePlayers,
+  wolfVictimId,
+  healUsed,
+  killUsed,
+  selection,
+  onSelectionChange,
+}: {
+  allPlayers: Player[];
+  alivePlayers: Player[];
+  wolfVictimId: number | null;
+  healUsed: boolean;
+  killUsed: boolean;
+  selection: string[];
+  onSelectionChange: (ids: string[]) => void;
+}) {
+  const wolfVictim = allPlayers.find((p) => p.id === wolfVictimId) ?? null;
+  const isHealed = selection.includes(HEAL_TOKEN);
+  const killTarget = selection.find((id) => id !== HEAL_TOKEN) ?? null;
+
+  const toggleHeal = () => {
+    const next = selection.filter((id) => id !== HEAL_TOKEN);
+    if (!isHealed) next.unshift(HEAL_TOKEN);
+    onSelectionChange(next);
+  };
+
+  const toggleKill = (id: string) => {
+    const healPart = isHealed ? [HEAL_TOKEN] : [];
+    onSelectionChange(killTarget === id ? healPart : [...healPart, id]);
+  };
+
+  return (
+    <div className="mb-4 space-y-4">
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+          Potion de guérison
+        </p>
+        {healUsed ? (
+          <p className="text-sm text-gray-600">Déjà utilisée cette partie.</p>
+        ) : wolfVictim ? (
+          <button
+            type="button"
+            onClick={toggleHeal}
+            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+              isHealed
+                ? 'border-emerald-600 bg-emerald-600 text-white'
+                : 'border-emerald-800 bg-emerald-950/40 text-emerald-300'
+            }`}
+          >
+            {isHealed ? '✓ ' : ''}Guérir {wolfVictim.name}
+          </button>
+        ) : (
+          <p className="text-sm text-gray-600">Aucune victime désignée par les loups.</p>
+        )}
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+          Potion de mort
+        </p>
+        {killUsed ? (
+          <p className="text-sm text-gray-600">Déjà utilisée cette partie.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {alivePlayers.map((p) => {
+              const isSelected = killTarget === String(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => toggleKill(String(p.id))}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    isSelected
+                      ? 'border-red-700 bg-red-700 text-white'
+                      : 'border-red-800 bg-red-950/40 text-red-300'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function CharacterCardV2({
+  character,
+  allPlayers,
+  alivePlayers,
+  targetPlayers,
+  isLast,
+  selection,
+  onSelectionChange,
+  assignedPlayerIds,
+  requiredAssignCount,
+  onToggleAssignPlayer,
+  onNext,
+  onWakeVillage,
+  wolfVictimId,
+  witchHealUsed,
+  witchKillUsed,
+  lovers,
+}: CharacterCardV2Props) {
+  const isAssigned = assignedPlayerIds.length >= requiredAssignCount;
+
+  // For cupidon on subsequent nights (lovers already set), show lovers info
+  const loversAlreadySet = character.id === 'cupidon' && lovers !== null;
+  const loverNames = lovers
+    ? lovers.map((id) => allPlayers.find((p) => p.id === id)?.name ?? '?')
+    : [];
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-4 py-8">
       <div className="w-full max-w-sm">
         {/* Character Image */}
         <div className="relative mb-4 overflow-hidden rounded-xl border border-gray-800">
@@ -49,16 +288,14 @@ export function CharacterCardV2({
             className="aspect-[4/3] w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-transparent to-transparent" />
-          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-100 drop-shadow-lg">{character.name}</h2>
-              <TeamBadge team={character.team} />
-            </div>
+          <div className="absolute bottom-3 left-3 right-3">
+            <h2 className="text-xl font-bold text-gray-100 drop-shadow-lg">{character.name}</h2>
+            <TeamBadge team={character.team} />
           </div>
         </div>
 
         {/* Night Action */}
-        <div className="mb-3 rounded-lg border border-gray-800 bg-gray-900 p-4">
+        <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-4">
           <div className="mb-2 flex items-center gap-2">
             <Eye className="h-4 w-4 text-violet-400" />
             <h3 className="text-sm font-semibold text-violet-400">Action de nuit</h3>
@@ -66,89 +303,68 @@ export function CharacterCardV2({
           <p className="text-sm leading-relaxed text-gray-300">{character.nightAction}</p>
         </div>
 
-        {/* Powers */}
-        <div className="mb-3 rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Shield className="h-4 w-4 text-gray-400" />
-            <h3 className="text-sm font-semibold text-gray-400">Pouvoir</h3>
-          </div>
-          <p className="text-sm leading-relaxed text-gray-400">{character.powers}</p>
-        </div>
+        {/* Role assignment (always shown) */}
+        <RoleAssignSection
+          character={character}
+          allPlayers={allPlayers}
+          assignedPlayerIds={assignedPlayerIds}
+          requiredAssignCount={requiredAssignCount}
+          onToggle={onToggleAssignPlayer}
+        />
 
-        {/* Targets */}
-        <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Crosshair className="h-4 w-4 text-red-400" />
-            <h3 className="text-sm font-semibold text-red-400">Cibles possibles</h3>
-          </div>
-          <p className="text-sm leading-relaxed text-gray-300">
-            {character.id === 'sorciere'
-              ? `Potion de vie : ${witchPotions.life ? 'Disponible' : 'Utilisée'} | Potion de mort : ${witchPotions.death ? 'Disponible' : 'Utilisée'}`
-              : character.targets}
-          </p>
-        </div>
-
-        {/* Assign Role */}
-        <button
-          onClick={() => setShowAssign(!showAssign)}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 py-2.5 text-sm font-medium text-gray-100 transition-colors hover:bg-gray-700 active:bg-gray-700"
-        >
-          <UserPlus className="h-4 w-4" />
-          Attribuer ce rôle
-        </button>
-
-        {showAssign && (
-          <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900 p-3">
-            <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
-              {availablePlayers.length === 0 ? (
-                <p className="py-2 text-center text-sm text-gray-400">
-                  Tous les joueurs ont déjà un rôle.
+        {/* Target / action section — only after role is assigned */}
+        {isAssigned && (
+          <>
+            {loversAlreadySet ? (
+              <div className="mb-4 rounded-lg border border-pink-900/50 bg-pink-950/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-pink-400 mb-1">
+                  Amoureux désignés (nuit 1)
                 </p>
-              ) : (
-                availablePlayers.map((player) => {
-                  const alreadyAssigned = player.role?.id === character.id;
-                  return (
-                    <button
-                      key={player.id}
-                      onClick={() => onAssignRole(player.id, character)}
-                      className={`flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors ${
-                        alreadyAssigned
-                          ? 'bg-violet-900/30 text-violet-400'
-                          : 'text-gray-300 hover:bg-gray-800'
-                      }`}
-                    >
-                      <span>{player.name}</span>
-                      {alreadyAssigned && (
-                        <span className="text-xs text-violet-400">Attribué</span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
+                <p className="text-sm text-pink-300">{loverNames.join(' & ')}</p>
+              </div>
+            ) : character.id === 'sorciere' ? (
+              <WitchTargets
+                allPlayers={allPlayers}
+                alivePlayers={targetPlayers}
+                wolfVictimId={wolfVictimId}
+                healUsed={witchHealUsed}
+                killUsed={witchKillUsed}
+                selection={selection}
+                onSelectionChange={onSelectionChange}
+              />
+            ) : (
+              <TargetButtons
+                character={character}
+                alivePlayers={targetPlayers}
+                selection={selection}
+                onSelectionChange={onSelectionChange}
+              />
+            )}
+          </>
         )}
 
         {/* Navigation */}
-        <div className="flex gap-3">
-          {!isLast ? (
-            <button
-              onClick={onNext}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700"
-            >
-              Personnage suivant
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              onClick={onWakeVillage}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700"
-            >
-              <Sun className="h-4 w-4" />
-              Réveil du village
-            </button>
-          )}
-        </div>
+        {!isLast ? (
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!isAssigned}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Personnage suivant
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onWakeVillage}
+            disabled={!isAssigned}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Sun className="h-4 w-4" />
+            Réveil du village
+          </button>
+        )}
       </div>
     </div>
   );
