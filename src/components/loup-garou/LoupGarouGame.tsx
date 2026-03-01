@@ -241,7 +241,8 @@ function VersionPicker({ onSelect }: { onSelect: (v: GameVersion) => void }) {
 }
 
 export function LoupGarouGame() {
-  const [version, setVersion] = useState<GameVersion | null>(null);
+  const [version, setVersion] = useState<GameVersion | null>('v2');
+  const [gameKey, setGameKey] = useState(0);
   const [state, dispatch] = useLocalStorageGame();
   const undoHistoryRef = useRef<GameState[]>([]);
   const [undoCount, setUndoCount] = useState(0);
@@ -313,7 +314,7 @@ export function LoupGarouGame() {
     undoHistoryRef.current = [];
     setUndoCount(0);
     dispatch({ type: 'new_game' });
-    setVersion(null);
+    setGameKey((k) => k + 1);
   }, []);
 
   const canUndo = undoCount > 0;
@@ -323,7 +324,7 @@ export function LoupGarouGame() {
   }
 
   if (version === 'v2') {
-    return <GameMasterV2 onNewGame={newGame} />;
+    return <GameMasterV2 key={gameKey} onNewGame={newGame} />;
   }
 
   return (
