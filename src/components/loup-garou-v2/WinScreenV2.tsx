@@ -1,28 +1,34 @@
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw } from "lucide-react";
 
 interface WinScreenV2Props {
-  winner: 'wolves' | 'village' | 'loup-blanc';
+  winner: "wolves" | "village" | "loup-blanc" | "ange";
   onRestart: () => void;
 }
 
 const CONFIG = {
   wolves: {
-    image: '/images/loup-garou-win.png',
-    bg: 'from-gray-950 to-gray-950',
-    button: 'bg-red-700 hover:bg-red-600 active:bg-red-800',
-    alt: 'Victoire des Loups-Garous',
+    image: "/images/loup-garou-win.png",
+    bg: "from-gray-950 to-gray-950",
+    button: "bg-red-700 hover:bg-red-600 active:bg-red-800",
+    alt: "Victoire des Loups-Garous",
   },
   village: {
-    image: '/images/villageois-win.png',
-    bg: 'from-gray-950 to-gray-950',
-    button: 'bg-violet-600 hover:bg-violet-500 active:bg-violet-700',
-    alt: 'Victoire des Villageois',
+    image: "/images/villageois-win.png",
+    bg: "from-gray-950 to-gray-950",
+    button: "bg-violet-600 hover:bg-violet-500 active:bg-violet-700",
+    alt: "Victoire des Villageois",
   },
-  'loup-blanc': {
-    image: '/images/loup-garou-win.png',
-    bg: 'from-gray-950 to-gray-950',
-    button: 'bg-gray-600 hover:bg-gray-500 active:bg-gray-700',
-    alt: 'Victoire du Loup-Blanc',
+  "loup-blanc": {
+    image: "/images/loup-blanc.png",
+    bg: "from-gray-950 to-gray-950",
+    button: "bg-gray-600 hover:bg-gray-500 active:bg-gray-700",
+    alt: "Victoire du Loup-Blanc",
+  },
+  ange: {
+    image: "/images/ange-win.png",
+    bg: "from-gray-950 to-gray-950",
+    button: "bg-amber-600 hover:bg-amber-500 active:bg-amber-700",
+    alt: "Victoire de l'Ange",
   },
 } as const;
 

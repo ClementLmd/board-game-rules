@@ -42,6 +42,17 @@ export const CHARACTERS: Character[] = [
     unique: true,
   },
   {
+    id: 'enfant-sauvage',
+    name: "L'Enfant Sauvage",
+    image: '/images/enfant-sauvage.png',
+    team: 'village',
+    wakeUpOrder: 1.5,
+    nightAction: "L'Enfant Sauvage se réveille et désigne un joueur modèle. Si ce modèle meurt, l'Enfant Sauvage rejoint les Loups-Garous.",
+    maxTargets: 1,
+    night1Only: true,
+    unique: true,
+  },
+  {
     id: 'loup-garou',
     name: 'Les Loups-Garous',
     image: '/images/loup-garou.jpg',
@@ -114,6 +125,39 @@ export const CHARACTERS: Character[] = [
     unique: true,
   },
   {
+    id: 'ange',
+    name: "L'Ange",
+    image: '/images/ange.png',
+    team: 'solo',
+    wakeUpOrder: 6,
+    nightAction: "L'Ange n'a pas d'action de nuit. Il gagne la partie s'il est éliminé par le village lors du tout premier vote de jour.",
+    maxTargets: 0,
+    unique: true,
+    night1Only: true,
+  },
+  {
+    id: 'montreur-ours',
+    name: "Montreur d'Ours",
+    image: '/images/montreur-ours.png',
+    team: 'village',
+    wakeUpOrder: 7,
+    nightAction: "Au réveil du village : si un Loup-Garou est assis à côté du Montreur d'Ours, l'ours grogne (le MDJ fait un bruit).",
+    maxTargets: 0,
+    unique: true,
+    night1Only: true,
+  },
+  {
+    id: 'ancien',
+    name: "L'Ancien",
+    image: '/images/ancien.png',
+    team: 'village',
+    wakeUpOrder: 8,
+    nightAction: "L'Ancien possède deux vies contre la nuit. La première fois qu'il est attaqué par les Loups-Garous, il survit (il dévoile sa carte au réveil). La seconde fois, il meurt. S'il est éliminé par le vote ou le pouvoir des villageois, il meurt et tous les rôles villageois perdent leurs pouvoirs.",
+    maxTargets: 0,
+    unique: true,
+    night1Only: true,
+  },
+  {
     id: 'villageois',
     name: 'Villageois',
     image: '/images/villageois.jpg',
@@ -153,6 +197,10 @@ export const CHARACTER_COLORS: Record<string, { idle: string; selected: string }
     idle: 'border-pink-800 bg-pink-950/40 text-pink-300',
     selected: 'bg-pink-600 border-pink-600 text-white',
   },
+  'enfant-sauvage': {
+    idle: 'border-teal-800 bg-teal-950/40 text-teal-300',
+    selected: 'bg-teal-600 border-teal-600 text-white',
+  },
   voyante: {
     idle: 'border-violet-800 bg-violet-950/40 text-violet-300',
     selected: 'bg-violet-600 border-violet-600 text-white',
@@ -172,6 +220,14 @@ export const CHARACTER_COLORS: Record<string, { idle: string; selected: string }
   renard: {
     idle: 'border-amber-700 bg-amber-950/40 text-amber-300',
     selected: 'bg-amber-600 border-amber-600 text-white',
+  },
+  'montreur-ours': {
+    idle: 'border-amber-800 bg-amber-950/40 text-amber-300',
+    selected: 'bg-amber-600 border-amber-600 text-white',
+  },
+  ancien: {
+    idle: 'border-stone-600 bg-stone-800/40 text-stone-300',
+    selected: 'bg-stone-600 border-stone-600 text-white',
   },
 };
 
