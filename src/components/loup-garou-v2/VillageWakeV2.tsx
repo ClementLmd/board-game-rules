@@ -7,6 +7,7 @@ interface VillageWakeV2Props {
   players: Player[];
   stepSelections: Record<string, string[]>;
   lovers: [number, number] | null;
+  roleAssignments: Record<string, number[]>;
   onDayPhase: () => void;
 }
 
@@ -14,9 +15,12 @@ export function VillageWakeV2({
   players,
   stepSelections,
   lovers,
+  roleAssignments,
   onDayPhase,
 }: VillageWakeV2Props) {
   const playerById = new Map(players.map((p) => [String(p.id), p]));
+  const montreurIds = roleAssignments['montreur-ours'] ?? [];
+  const montreurAlive = players.find((p) => montreurIds.includes(p.id) && p.isAlive);
 
   const wolfVictimId = (stepSelections['loup-garou'] ?? [])[0];
   const wolfVictim = wolfVictimId ? playerById.get(wolfVictimId) : null;
@@ -91,6 +95,15 @@ export function VillageWakeV2({
             </div>
           )}
         </div>
+
+        {montreurAlive && (
+          <div className="mb-6 rounded-lg border border-amber-800/50 bg-amber-950/20 p-4">
+            <p className="text-sm font-semibold text-amber-400">Montreur d&apos;Ours — {montreurAlive.name}</p>
+            <p className="mt-1 text-xs text-amber-200/90">
+              Vérifiez l&apos;ordre d&apos;assise : si un Loup-Garou est à côté de lui, l&apos;ours grogne (faites le bruit).
+            </p>
+          </div>
+        )}
 
         <button
           onClick={onDayPhase}

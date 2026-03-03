@@ -12,7 +12,7 @@ const ROLE_GROUPS = [
   { label: 'Loups-Garous', ids: ['loup-garou', 'loup-blanc'], color: 'text-red-400' },
   {
     label: 'Village',
-    ids: ['cupidon', 'voyante', 'sorciere', 'renard', 'chasseur', 'petite-fille'],
+    ids: ['cupidon', 'voyante', 'enfant-sauvage', 'sorciere', 'renard', 'montreur-ours', 'ancien', 'chasseur', 'petite-fille', 'ange'],
     color: 'text-violet-400',
   },
 ];
@@ -28,10 +28,14 @@ export function RoleConfigV2({ playerCount, onStart }: RoleConfigV2Props) {
     voyante: 1,
     sorciere: 1,
     cupidon: 0,
+    'enfant-sauvage': 0,
     renard: 0,
+    'montreur-ours': 0,
+    ancien: 0,
     chasseur: 0,
     'petite-fille': 0,
     'loup-blanc': 0,
+    ange: 0,
     villageois: 0,
   }));
 
