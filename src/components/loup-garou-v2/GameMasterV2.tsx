@@ -82,6 +82,7 @@ function isRoleActive(
  * Returns the winner if a win condition is met, or null to continue.
  * Village wins when no wolves are alive; wolves win when no non-wolves are alive.
  * Loup-Blanc wins when he is the only survivor.
+ * Loup-blanc counts as a wolf for village/wolves win checks.
  */
 function checkWin(
   players: Player[],
@@ -89,9 +90,10 @@ function checkWin(
 ): Winner | null {
   const wolfIds = new Set(roleAssignments['loup-garou'] ?? []);
   const whiteWolfIds = new Set(roleAssignments['loup-blanc'] ?? []);
+  const anyWolfIds = new Set([...wolfIds, ...whiteWolfIds]);
   const alive = players.filter((p) => p.isAlive);
-  const aliveWolves = alive.filter((p) => wolfIds.has(p.id));
-  const aliveVillagers = alive.filter((p) => !wolfIds.has(p.id));
+  const aliveWolves = alive.filter((p) => anyWolfIds.has(p.id));
+  const aliveVillagers = alive.filter((p) => !anyWolfIds.has(p.id));
   // Loup-Blanc solo win: only the white wolf is alive
   if (alive.length === 1 && whiteWolfIds.has(alive[0].id)) return 'loup-blanc';
   if (aliveWolves.length === 0) return 'village';
