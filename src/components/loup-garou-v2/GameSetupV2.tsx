@@ -1,14 +1,30 @@
-import { useState } from 'react';
-import { Plus, Trash2, Moon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Moon, History } from 'lucide-react';
 import type { Player } from './game-data';
 
 interface GameSetupV2Props {
   onStart: (players: Player[]) => void;
+  /** Pre-fill with these names (e.g. from "Rejouer" in game history) */
+  initialPlayerNames?: string[] | null;
+  /** When provided, show a "Parties précédentes" button that calls this */
+  onOpenPreviousGames?: () => void;
 }
 
-export function GameSetupV2({ onStart }: GameSetupV2Props) {
+export function GameSetupV2({ onStart, initialPlayerNames, onOpenPreviousGames }: GameSetupV2Props) {
   const [playerNames, setPlayerNames] = useState<string[]>(['', '', '', '', '', '']);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initialPlayerNames != null && initialPlayerNames.length > 0) {
+      const minSlots = 6;
+      const padded =
+        initialPlayerNames.length >= minSlots
+          ? [...initialPlayerNames]
+          : [...initialPlayerNames, ...Array(minSlots - initialPlayerNames.length).fill('')];
+      setPlayerNames(padded);
+      setError('');
+    }
+  }, [initialPlayerNames]);
 
   function addPlayer() {
     if (playerNames.length >= 18) return;
@@ -98,12 +114,24 @@ export function GameSetupV2({ onStart }: GameSetupV2Props) {
 
         {error && <p className="mt-3 text-center text-sm text-red-400">{error}</p>}
 
-        <button
-          onClick={handleStart}
-          className="mt-6 w-full rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700"
-        >
-          Commencer la nuit
-        </button>
+        <div className="mt-6 flex flex-col gap-2">
+          {onOpenPreviousGames && (
+            <button
+              type="button"
+              onClick={onOpenPreviousGames}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800/80 py-2.5 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+            >
+              <History className="h-4 w-4" />
+              Parties précédentes
+            </button>
+          )}
+          <button
+            onClick={handleStart}
+            className="w-full rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700"
+          >
+            Commencer la nuit
+          </button>
+        </div>
       </div>
     </div>
   );

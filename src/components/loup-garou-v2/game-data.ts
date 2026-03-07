@@ -265,3 +265,65 @@ export function computeNightDeaths(
 
   return deaths;
 }
+
+// ── Game history ───────────────────────────────────────────────────────────
+
+export type HistoryWinner = 'wolves' | 'village' | 'loup-blanc' | 'ange';
+
+export interface GameHistoryEntry {
+  id: string;
+  date: string;
+  playerNames: string[];
+  roleAssignments: Record<string, number[]>;
+  winner: HistoryWinner;
+}
+
+const HISTORY_STORAGE_KEY = 'loup-garou-v2-history';
+const MAX_HISTORY = 50;
+
+export function getRoleDisplayName(roleKey: string): string {
+  const char = CHARACTERS.find((c) => c.id === roleKey || c.configKey === roleKey);
+  return char?.name ?? roleKey;
+}
+
+/** Get each player's role for display: playerId (1-based) -> role display name */
+export function getPlayerRoles(
+  roleAssignments: Record<string, number[]>
+): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const [roleKey, playerIds] of Object.entries(roleAssignments)) {
+    const name = getRoleDisplayName(roleKey);
+    for (const id of playerIds) map.set(id, name);
+  }
+  return map;
+}
+
+export function loadGameHistory(): GameHistoryEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as GameHistoryEntry[];
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+export function saveGameToHistory(entry: Omit<GameHistoryEntry, 'id' | 'date'>): void {
+  try {
+    const full: GameHistoryEntry = {
+      ...entry,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      date: new Date().toISOString(),
+    };
+    const list = loadGameHistory();
+    list.unshift(full);
+    const trimmed = list.slice(0, MAX_HISTORY);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* ignore */
+  }
+}

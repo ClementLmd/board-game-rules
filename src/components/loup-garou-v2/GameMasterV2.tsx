@@ -3,6 +3,8 @@ import { Users, Skull, Undo2, RefreshCw } from 'lucide-react';
 import {
   getNightCharactersForConfig,
   computeNightDeaths,
+  loadGameHistory,
+  saveGameToHistory,
   type Character,
   type Player,
   type RoleConfigV2,
@@ -16,6 +18,7 @@ import { DayPhaseV2 } from './DayPhaseV2';
 import { DayResultV2 } from './DayResultV2';
 import { WinScreenV2 } from './WinScreenV2';
 import { DeathHistoryPanel, type DeathEntry } from './DeathHistoryPanel';
+import { GameHistoryPanel } from './GameHistoryPanel';
 
 type Phase = 'setup' | 'roleConfig' | 'night' | 'wake' | 'day' | 'dayResult' | 'win';
 type Winner = 'wolves' | 'village' | 'loup-blanc' | 'ange';
@@ -129,6 +132,10 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   const [deathHistoryOpen, setDeathHistoryOpen] = useState(false);
   /** Deaths from the last day vote — shown on dayResult screen */
   const [dayResultDeaths, setDayResultDeaths] = useState<DeathEntry[]>([]);
+  const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState<ReturnType<typeof loadGameHistory>>([]);
+  const [initialPlayerNames, setInitialPlayerNames] = useState<string[] | null>(null);
+  const savedToHistoryRef = useRef(false);
 
   // ── Undo stack ─────────────────────────────────────────────────────────────
   const undoStack = useRef<V2SavedState[]>([]);
@@ -171,8 +178,20 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     clearSaved();
     undoStack.current = [];
     setUndoCount(0);
+    savedToHistoryRef.current = false;
     onNewGame();
   }, [onNewGame]);
+
+  // Save to game history when the game is won (once per game)
+  useEffect(() => {
+    if (phase !== 'win' || !winner || players.length === 0 || savedToHistoryRef.current) return;
+    saveGameToHistory({
+      playerNames: players.map((p) => p.name),
+      roleAssignments,
+      winner,
+    });
+    savedToHistoryRef.current = true;
+  }, [phase, winner, players, roleAssignments]);
 
   // Persist to localStorage whenever relevant state changes
   useEffect(() => {
@@ -248,8 +267,19 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
 
   // ── Setup ────────────────────────────────────────────────────────────────
   const handleSetupDone = useCallback((newPlayers: Player[]) => {
+    setInitialPlayerNames(null);
     setPlayers(newPlayers);
     setPhase('roleConfig');
+  }, []);
+
+  const handleOpenHistory = useCallback(() => {
+    setHistoryEntries(loadGameHistory());
+    setHistoryPanelOpen(true);
+  }, []);
+
+  const handleReplayWithPlayers = useCallback((playerNames: string[]) => {
+    setInitialPlayerNames(playerNames);
+    setHistoryPanelOpen(false);
   }, []);
 
   const handleRoleConfigDone = useCallback((config: RoleConfigV2) => {
@@ -584,7 +614,13 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
 
       {/* Main Content — pb-16 leaves room for the fixed bottom bar */}
       <div className={isNightPhase ? 'pb-16' : ''}>
-        {phase === 'setup' && <GameSetupV2 onStart={handleSetupDone} />}
+        {phase === 'setup' && (
+          <GameSetupV2
+            onStart={handleSetupDone}
+            initialPlayerNames={initialPlayerNames}
+            onOpenPreviousGames={handleOpenHistory}
+          />
+        )}
 
         {phase === 'roleConfig' && (
           <RoleConfigScreen playerCount={players.length} onStart={handleRoleConfigDone} />
@@ -682,6 +718,14 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         deaths={deathLog}
         isOpen={deathHistoryOpen}
         onClose={() => setDeathHistoryOpen(false)}
+      />
+
+      {/* Game history panel (previous games) */}
+      <GameHistoryPanel
+        entries={historyEntries}
+        isOpen={historyPanelOpen}
+        onClose={() => setHistoryPanelOpen(false)}
+        onReplayWithPlayers={handleReplayWithPlayers}
       />
     </div>
   );
