@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Plus, Minus, ChevronRight } from 'lucide-react';
+import { Plus, Minus, ChevronRight, ArrowLeft } from 'lucide-react';
 import { CHARACTERS, type RoleConfigV2, type Character } from './game-data';
 
 function maxForRole(char: Character): number {
@@ -20,9 +20,11 @@ const ROLE_GROUPS = [
 interface RoleConfigV2Props {
   playerCount: number;
   onStart: (config: RoleConfigV2) => void;
+  /** Return to player setup to modify the list of players */
+  onBack?: () => void;
 }
 
-export function RoleConfigV2({ playerCount, onStart }: RoleConfigV2Props) {
+export function RoleConfigV2({ playerCount, onStart, onBack }: RoleConfigV2Props) {
   const [config, setConfig] = useState<RoleConfigV2>(() => ({
     'loup-garou': Math.max(2, Math.floor(playerCount / 4)),
     voyante: 1,
@@ -65,11 +67,23 @@ export function RoleConfigV2({ playerCount, onStart }: RoleConfigV2Props) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-gray-950 px-4 pt-6 pb-8">
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <h2 className="text-xl font-bold text-gray-100">Composition de la partie</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            {playerCount} joueurs · {villageois >= 0 ? villageois : 0} villageois simples restants
-          </p>
+        <div className="mb-6 flex flex-col items-center">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-4 flex w-full items-center justify-center gap-2 self-start rounded-lg border border-gray-700 bg-gray-800/80 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Modifier les joueurs
+            </button>
+          )}
+          <div className="w-full text-center">
+            <h2 className="text-xl font-bold text-gray-100">Composition de la partie</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              {playerCount} joueurs · {villageois >= 0 ? villageois : 0} villageois simples restants
+            </p>
+          </div>
         </div>
 
         <div className="space-y-5">

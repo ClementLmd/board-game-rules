@@ -7,28 +7,32 @@ interface WinScreenV2Props {
 
 const CONFIG = {
   wolves: {
-    image: "/images/loup-garou-win.png",
+    image: "/images/loup-garou-win-2.png",
     bg: "from-gray-950 to-gray-950",
     button: "bg-red-700 hover:bg-red-600 active:bg-red-800",
     alt: "Victoire des Loups-Garous",
+    victoryText: "Victoire des Loups-Garous !",
   },
   village: {
-    image: "/images/villageois-win.png",
+    image: "/images/villageois-win-2.png",
     bg: "from-gray-950 to-gray-950",
     button: "bg-violet-600 hover:bg-violet-500 active:bg-violet-700",
     alt: "Victoire des Villageois",
+    victoryText: "Victoire des Villageois !",
   },
   "loup-blanc": {
     image: "/images/loup-blanc.png",
     bg: "from-gray-950 to-gray-950",
     button: "bg-gray-600 hover:bg-gray-500 active:bg-gray-700",
     alt: "Victoire du Loup-Blanc",
+    victoryText: "Victoire du Loup-Blanc !",
   },
   ange: {
     image: "/images/ange-win.png",
     bg: "from-gray-950 to-gray-950",
     button: "bg-amber-600 hover:bg-amber-500 active:bg-amber-700",
     alt: "Victoire de l'Ange",
+    victoryText: "Victoire de l'Ange !",
   },
 } as const;
 
@@ -37,6 +41,11 @@ export function WinScreenV2({ winner, onRestart }: WinScreenV2Props) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-4 py-10">
+      {/* Victory text */}
+      <p className="mb-4 text-center text-2xl font-bold tracking-tight text-gray-100 sm:text-3xl">
+        {c.victoryText}
+      </p>
+
       {/* Image — constrained so it never fills the whole screen */}
       <img
         src={c.image}
