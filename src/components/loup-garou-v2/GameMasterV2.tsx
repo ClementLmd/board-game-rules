@@ -282,6 +282,11 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     setHistoryPanelOpen(false);
   }, []);
 
+  const handleBackFromRoleConfig = useCallback(() => {
+    setInitialPlayerNames(players.map((p) => p.name));
+    setPhase('setup');
+  }, [players]);
+
   const handleRoleConfigDone = useCallback((config: RoleConfigV2) => {
     setRoleConfig(config);
     setStepSelections({});
@@ -623,7 +628,11 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         )}
 
         {phase === 'roleConfig' && (
-          <RoleConfigScreen playerCount={players.length} onStart={handleRoleConfigDone} />
+          <RoleConfigScreen
+            playerCount={players.length}
+            onStart={handleRoleConfigDone}
+            onBack={handleBackFromRoleConfig}
+          />
         )}
 
         {phase === 'night' && currentChar && (

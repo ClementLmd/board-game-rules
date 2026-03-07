@@ -64,8 +64,8 @@ export function GameSetupV2({ onStart, initialPlayerNames, onOpenPreviousGames }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-start px-4 pt-8 pb-8 bg-gray-950">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen w-full items-center justify-center bg-gray-950 px-4 py-8">
+      <div className="mx-auto w-full max-w-md">
         <div className="mb-6 flex flex-col items-center gap-3">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-900/30 ring-2 ring-violet-700/40">
             <Moon className="h-8 w-8 text-violet-400" />
@@ -80,19 +80,19 @@ export function GameSetupV2({ onStart, initialPlayerNames, onOpenPreviousGames }
 
         <div className="flex flex-col gap-2">
           {playerNames.map((name, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="w-7 text-right text-xs text-gray-500">{i + 1}.</span>
+            <div key={i} className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 w-7 text-right text-xs text-gray-500">{i + 1}.</span>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => updateName(i, e.target.value)}
                 placeholder={`Joueur ${i + 1}`}
-                className="flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-600"
+                className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-600"
               />
               {playerNames.length > 5 && (
                 <button
                   onClick={() => removePlayer(i)}
-                  className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-red-900/20 hover:text-red-400"
+                  className="shrink-0 rounded-md p-1.5 text-gray-500 transition-colors hover:bg-red-900/20 hover:text-red-400"
                   aria-label={`Supprimer joueur ${i + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
