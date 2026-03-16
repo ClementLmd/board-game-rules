@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { ChevronRight, Sun, Eye, UserCheck, ChevronDown } from "lucide-react";
 import type { Character, Player } from "./game-data";
-import { CHARACTER_COLORS } from "./game-data";
+import { CHARACTER_COLORS, CHARACTERS } from "./game-data";
 
 const HEAL_TOKEN = "__heal__";
 
@@ -35,6 +35,8 @@ interface CharacterCardV2Props {
   lovers: [number, number] | null;
   /** When Renard has chosen 3 players: true = at least one wolf in group (GM hint) */
   renardWolfInGroup?: boolean;
+  /** Current role assignments, used e.g. by the Voyante to reveal a card the MDJ already knows */
+  roleAssignments: Record<string, number[]>;
 }
 
 function TeamBadge({ team }: { team: Character["team"] }) {
@@ -346,6 +348,116 @@ function WitchTargets({
   );
 }
 
+function VoyanteTargets({
+  targetPlayers,
+  selection,
+  onSelectionChange,
+  roleAssignments,
+}: {
+  targetPlayers: Player[];
+  selection: string[];
+  onSelectionChange: (ids: string[]) => void;
+  roleAssignments: Record<string, number[]>;
+}) {
+  const colors = CHARACTER_COLORS["voyante"];
+  const [revealedPlayerId, setRevealedPlayerId] = useState<number | null>(null);
+
+  const toggleSelection = useCallback(
+    (id: string) => {
+      const selected = new Set(selection);
+      if (selected.has(id)) {
+        selected.delete(id);
+      } else {
+        // Voyante choisit toujours au plus 1 cible
+        selected.clear();
+        selected.add(id);
+      }
+      onSelectionChange([...selected]);
+
+      const numericId = Number(id);
+      setRevealedPlayerId((current) =>
+        current === numericId ? null : numericId,
+      );
+    },
+    [selection, onSelectionChange, roleAssignments],
+  );
+
+  const revealedCharacter =
+    revealedPlayerId == null
+      ? null
+      : (() => {
+          let roleKey: string | null = null;
+          for (const [key, ids] of Object.entries(roleAssignments)) {
+            if (ids.includes(revealedPlayerId)) {
+              roleKey = key;
+              break;
+            }
+          }
+          // Si aucun rôle spécial n'est attribué, c'est un simple villageois
+          if (!roleKey) {
+            roleKey = "villageois";
+          }
+          return (
+            CHARACTERS.find(
+              (c) => c.id === roleKey || c.configKey === roleKey,
+            ) ?? null
+          );
+        })();
+
+  if (!colors) return null;
+
+  return (
+    <div className="mb-4 space-y-4">
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+          Choisir 1 joueur
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {targetPlayers.map((p) => {
+            const isSelected = selection.includes(String(p.id));
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => toggleSelection(String(p.id))}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  isSelected ? colors.selected : colors.idle
+                }`}
+              >
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {revealedCharacter && (
+        <div className="overflow-hidden rounded-lg border border-violet-800 bg-violet-950/40">
+          <div className="relative">
+            <img
+              src={revealedCharacter.image}
+              alt={revealedCharacter.name}
+              className="aspect-[4/3] w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-950/80 via-transparent to-transparent" />
+            <div className="absolute bottom-3 left-3 right-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-violet-300/90">
+                Carte révélée
+              </p>
+              <p className="text-sm font-semibold text-gray-100 drop-shadow">
+                {revealedCharacter.name}
+              </p>
+              <p className="mt-1 text-[11px] text-violet-200/80">
+                Touchez à nouveau le joueur pour masquer la carte.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CharacterCardV2({
   character,
   allPlayers,
@@ -367,6 +479,7 @@ export function CharacterCardV2({
   witchKillUsed,
   lovers,
   renardWolfInGroup,
+  roleAssignments,
 }: CharacterCardV2Props) {
   const isAssigned = loupBlancSoloAssignMode
     ? selection.length === 1
@@ -483,6 +596,13 @@ export function CharacterCardV2({
                 killUsed={witchKillUsed}
                 selection={selection}
                 onSelectionChange={onSelectionChange}
+              />
+            ) : character.id === "voyante" ? (
+              <VoyanteTargets
+                targetPlayers={targetPlayers}
+                selection={selection}
+                onSelectionChange={onSelectionChange}
+                roleAssignments={roleAssignments}
               />
             ) : (
               <TargetButtons

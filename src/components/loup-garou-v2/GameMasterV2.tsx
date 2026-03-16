@@ -658,6 +658,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             witchKillUsed={witchKillUsed}
             lovers={lovers}
             renardWolfInGroup={renardWolfInGroup}
+            roleAssignments={roleAssignments}
           />
         )}
 
