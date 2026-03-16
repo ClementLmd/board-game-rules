@@ -1,20 +1,17 @@
 import { Sun, Vote } from 'lucide-react';
-import { computeNightDeaths, type Player } from './game-data';
-
-const HEAL_TOKEN = '__heal__';
+import type { Player } from './game-data';
+import type { NightOutcome } from './game-rules';
 
 interface VillageWakeV2Props {
   players: Player[];
-  stepSelections: Record<string, string[]>;
-  lovers: [number, number] | null;
+  nightOutcome: NightOutcome;
   roleAssignments: Record<string, number[]>;
   onDayPhase: () => void;
 }
 
 export function VillageWakeV2({
   players,
-  stepSelections,
-  lovers,
+  nightOutcome,
   roleAssignments,
   onDayPhase,
 }: VillageWakeV2Props) {
@@ -22,22 +19,24 @@ export function VillageWakeV2({
   const montreurIds = roleAssignments['montreur-ours'] ?? [];
   const montreurAlive = players.find((p) => montreurIds.includes(p.id) && p.isAlive);
 
-  const wolfVictimId = (stepSelections['loup-garou'] ?? [])[0];
-  const wolfVictim = wolfVictimId ? playerById.get(wolfVictimId) : null;
-  const witchSel = stepSelections['sorciere'] ?? [];
-  const witchHealed = witchSel.includes(HEAL_TOKEN);
-  const witchKillId = witchSel.find((id) => id !== HEAL_TOKEN);
-  const witchKillTarget = witchKillId ? playerById.get(witchKillId) : null;
+  const wolfVictimEntry = nightOutcome.deaths.find((d) => d.cause === 'loup-garou');
+  const witchKillEntry = nightOutcome.deaths.find((d) => d.cause === 'sorciere');
+  const loverChainEntries = nightOutcome.deaths.filter((d) => d.cause === 'amour');
 
-  const deathIds = computeNightDeaths(stepSelections, lovers);
-  const deaths = players.filter((p) => deathIds.has(p.id));
+  const wolfVictim = wolfVictimEntry
+    ? playerById.get(String(wolfVictimEntry.playerId)) ?? null
+    : null;
+  const witchKillTarget = witchKillEntry
+    ? playerById.get(String(witchKillEntry.playerId)) ?? null
+    : null;
 
-  // Detect lover chain deaths (died because their lover died)
-  const directDeathIds = new Set<number>();
-  const wolfDied = wolfVictim && !witchHealed;
-  if (wolfDied) directDeathIds.add(wolfVictim.id);
-  if (witchKillTarget) directDeathIds.add(witchKillTarget.id);
-  const loverChainDeaths = deaths.filter((p) => !directDeathIds.has(p.id));
+  const deaths = nightOutcome.deaths
+    .map((d) => playerById.get(String(d.playerId)) ?? null)
+    .filter((p): p is Player => p != null);
+
+  const loverChainDeaths = loverChainEntries
+    .map((d) => playerById.get(String(d.playerId)) ?? null)
+    .filter((p): p is Player => p != null);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-950 px-4 py-8">
