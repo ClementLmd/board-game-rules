@@ -63,6 +63,9 @@ export function GameSetupV2({ onStart, initialPlayerNames, onOpenPreviousGames }
     onStart(players);
   }
 
+  const filledPlayerCount = playerNames.filter((name) => name.trim() !== '').length;
+  const hasMinimumPlayers = filledPlayerCount >= 6;
+
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-gray-950 px-4 py-8">
       <div className="mx-auto w-full max-w-md">
@@ -127,7 +130,12 @@ export function GameSetupV2({ onStart, initialPlayerNames, onOpenPreviousGames }
           )}
           <button
             onClick={handleStart}
-            className="w-full rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-500 active:bg-violet-700"
+            disabled={!hasMinimumPlayers}
+            className={`w-full rounded-lg py-3 text-sm font-semibold transition-colors ${
+              hasMinimumPlayers
+                ? 'bg-violet-600 text-white hover:bg-violet-500 active:bg-violet-700'
+                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+            }`}
           >
             Commencer la nuit
           </button>

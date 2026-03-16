@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Player, RoleConfigV2 } from "./game-data";
 import { CHARACTERS } from "./game-data";
+import { ArrowLeft } from "lucide-react";
 
 interface ManualRoleAssignV2Props {
   players: Player[];
@@ -57,8 +58,7 @@ export function ManualRoleAssignV2({
         const alreadyHere = current.includes(playerId);
         // If already assigned to another role, ignore
         const assignedElsewhere = Object.entries(prev).some(
-          ([otherKey, ids]) =>
-            otherKey !== roleKey && ids.includes(playerId),
+          ([otherKey, ids]) => otherKey !== roleKey && ids.includes(playerId),
         );
         if (!alreadyHere && assignedElsewhere) {
           return prev;
@@ -111,6 +111,7 @@ export function ManualRoleAssignV2({
             onClick={onBack}
             className="mb-4 flex w-full items-center justify-center gap-2 self-start rounded-lg border border-gray-700 bg-gray-800/80 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-gray-100"
           >
+            <ArrowLeft className="h-4 w-4" />
             Modifier la composition
           </button>
           <div className="w-full text-center">
@@ -190,4 +191,3 @@ export function ManualRoleAssignV2({
     </div>
   );
 }
-
