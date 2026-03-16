@@ -19,8 +19,9 @@ import { DayResultV2 } from './DayResultV2';
 import { WinScreenV2 } from './WinScreenV2';
 import { DeathHistoryPanel, type DeathEntry } from './DeathHistoryPanel';
 import { GameHistoryPanel } from './GameHistoryPanel';
+import { ManualRoleAssignV2 } from './ManualRoleAssignV2';
 
-type Phase = 'setup' | 'roleConfig' | 'night' | 'wake' | 'day' | 'dayResult' | 'win';
+type Phase = 'setup' | 'roleConfig' | 'manualAssign' | 'night' | 'wake' | 'day' | 'dayResult' | 'win';
 type Winner = 'wolves' | 'village' | 'loup-blanc' | 'ange';
 
 const STORAGE_KEY = 'loup-garou-v2';
@@ -287,8 +288,24 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     setPhase('setup');
   }, [players]);
 
-  const handleRoleConfigDone = useCallback((config: RoleConfigV2) => {
+  const handleBackFromManualAssign = useCallback(() => {
+    setPhase('roleConfig');
+  }, []);
+
+  const handleRoleConfigDone = useCallback((config: RoleConfigV2, assignRolesNow: boolean) => {
     setRoleConfig(config);
+    setStepSelections({});
+    setCurrentStep(0);
+    setNight(1);
+    if (assignRolesNow) {
+      setPhase('manualAssign');
+    } else {
+      setPhase('night');
+    }
+  }, []);
+
+  const handleManualAssignDone = useCallback((assignments: Record<string, number[]>) => {
+    setRoleAssignments(assignments);
     setStepSelections({});
     setCurrentStep(0);
     setNight(1);
@@ -632,6 +649,16 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             playerCount={players.length}
             onStart={handleRoleConfigDone}
             onBack={handleBackFromRoleConfig}
+          />
+        )}
+
+        {phase === 'manualAssign' && (
+          <ManualRoleAssignV2
+            players={players}
+            roleConfig={roleConfig}
+            initialAssignments={roleAssignments}
+            onDone={handleManualAssignDone}
+            onBack={handleBackFromManualAssign}
           />
         )}
 

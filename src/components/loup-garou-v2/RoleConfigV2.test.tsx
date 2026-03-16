@@ -21,16 +21,18 @@ describe('RoleConfigV2', () => {
     expect(startBtn).not.toBeDisabled();
   });
 
-  it('calls onStart with config including villageois', async () => {
+  it('calls onStart with config including villageois and default assignRolesNow=false', async () => {
     const user = userEvent.setup();
     const onStart = vi.fn();
     const { container } = render(<RoleConfigV2 playerCount={6} onStart={onStart} />);
     await user.click(getStartButton(container));
     expect(onStart).toHaveBeenCalledTimes(1);
     const config = onStart.mock.calls[0][0];
+    const assignNow = onStart.mock.calls[0][1];
     expect(config).toHaveProperty('villageois');
     expect(config.villageois).toBeGreaterThanOrEqual(0);
     expect(config['loup-garou']).toBe(2); // max(2, floor(6/4))
+    expect(assignNow).toBe(false);
   });
 
   it('unique roles are capped at 1', async () => {

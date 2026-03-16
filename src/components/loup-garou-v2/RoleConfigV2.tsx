@@ -19,7 +19,7 @@ const ROLE_GROUPS = [
 
 interface RoleConfigV2Props {
   playerCount: number;
-  onStart: (config: RoleConfigV2) => void;
+  onStart: (config: RoleConfigV2, assignRolesNow: boolean) => void;
   /** Return to player setup to modify the list of players */
   onBack?: () => void;
 }
@@ -40,6 +40,7 @@ export function RoleConfigV2({ playerCount, onStart, onBack }: RoleConfigV2Props
     ange: 0,
     villageois: 0,
   }));
+  const [assignRolesNow, setAssignRolesNow] = useState(false);
 
   const total = Object.values(config).reduce((a, b) => a + b, 0);
   const villageois = playerCount - total;
@@ -61,8 +62,8 @@ export function RoleConfigV2({ playerCount, onStart, onBack }: RoleConfigV2Props
 
   const handleStart = useCallback(() => {
     if (!isValid || villageois < 0) return;
-    onStart({ ...config, villageois });
-  }, [config, isValid, villageois, onStart]);
+    onStart({ ...config, villageois }, assignRolesNow);
+  }, [config, isValid, villageois, assignRolesNow, onStart]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-gray-950 px-4 pt-6 pb-8">
@@ -155,6 +156,19 @@ export function RoleConfigV2({ playerCount, onStart, onBack }: RoleConfigV2Props
               </span>
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900 px-4 py-3">
+          <input
+            id="assign-roles-now"
+            type="checkbox"
+            checked={assignRolesNow}
+            onChange={(e) => setAssignRolesNow(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-violet-500 focus:ring-violet-500"
+          />
+          <label htmlFor="assign-roles-now" className="text-sm text-gray-200">
+            Attribuer les rôles maintenant (avant la première nuit)
+          </label>
         </div>
 
         {villageois < 0 && (
