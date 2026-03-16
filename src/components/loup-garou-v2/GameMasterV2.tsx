@@ -2,13 +2,17 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Users, Skull, Undo2, RefreshCw } from 'lucide-react';
 import {
   getNightCharactersForConfig,
-  computeNightDeaths,
   loadGameHistory,
   saveGameToHistory,
   type Character,
   type Player,
   type RoleConfigV2,
 } from './game-data';
+import {
+  resolveNightOutcome,
+  resolveDayOutcome,
+  checkWin,
+} from './game-rules';
 import { GameSetupV2 } from './GameSetupV2';
 import { RoleConfigV2 as RoleConfigScreen } from './RoleConfigV2';
 import { CharacterCardV2 } from './CharacterCardV2';
@@ -85,29 +89,6 @@ function isRoleActive(
   }
   if (assigned.length === 0) return true; // not yet assigned — keep it so GM can assign
   return assigned.some((id) => players.find((p) => p.id === id)?.isAlive);
-}
-
-/**
- * Returns the winner if a win condition is met, or null to continue.
- * Village wins when no wolves are alive; wolves win when no non-wolves are alive.
- * Loup-Blanc wins when he is the only survivor.
- * Loup-blanc counts as a wolf for village/wolves win checks.
- */
-function checkWin(
-  players: Player[],
-  roleAssignments: Record<string, number[]>
-): Winner | null {
-  const wolfIds = new Set(roleAssignments['loup-garou'] ?? []);
-  const whiteWolfIds = new Set(roleAssignments['loup-blanc'] ?? []);
-  const anyWolfIds = new Set([...wolfIds, ...whiteWolfIds]);
-  const alive = players.filter((p) => p.isAlive);
-  const aliveWolves = alive.filter((p) => anyWolfIds.has(p.id));
-  const aliveVillagers = alive.filter((p) => !anyWolfIds.has(p.id));
-  // Loup-Blanc solo win: only the white wolf is alive
-  if (alive.length === 1 && whiteWolfIds.has(alive[0].id)) return 'loup-blanc';
-  if (aliveWolves.length === 0) return 'village';
-  if (aliveVillagers.length === 0) return 'wolves';
-  return null;
 }
 
 export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
@@ -389,44 +370,36 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     pushUndo();
     if (currentChar?.id === 'sorciere') commitWitchPotions();
 
-    // Resolve cupidon lovers — compute the value synchronously so it's available
-    // for death calculations in the same tick (setLovers is async)
-    const cupidonSel = stepSelections['cupidon'] ?? [];
-    const currentLovers: [number, number] | null =
-      lovers ?? (cupidonSel.length === 2
-        ? [Number(cupidonSel[0]), Number(cupidonSel[1])]
-        : null);
-    if (!lovers && currentLovers) setLovers(currentLovers);
+    const nightOutcome = resolveNightOutcome({
+      players,
+      night,
+      stepSelections,
+      roleAssignments,
+      lovers,
+      enfantModel,
+      ancienLivesRemaining,
+    });
 
-    // Resolve Enfant Sauvage model (night 1) — store enfant + model pair
-    const enfantIds = roleAssignments['enfant-sauvage'] ?? [];
-    const enfantSel = stepSelections['enfant-sauvage'] ?? [];
-    const currentEnfantModel: [number, number] | null =
-      enfantModel ?? (enfantIds.length === 1 && enfantSel.length === 1
-        ? [enfantIds[0], Number(enfantSel[0])]
-        : null);
-    if (!enfantModel && currentEnfantModel) setEnfantModel(currentEnfantModel);
-
-    // Apply night deaths using the resolved lovers value
-    let deathIds = computeNightDeaths(stepSelections, currentLovers);
-    const wolfVictimId = (stepSelections['loup-garou'] ?? [])[0] ? Number((stepSelections['loup-garou'] ?? [])[0]) : null;
-    const ancienIds = new Set(roleAssignments['ancien'] ?? []);
-    const healed = (stepSelections['sorciere'] ?? []).includes('__heal__');
-    // L'Ancien: two lives vs werewolves — first attack he survives (reveals card at wake), second he dies
-    if (wolfVictimId != null && ancienIds.has(wolfVictimId) && !healed && ancienLivesRemaining === 2) {
-      deathIds = new Set([...deathIds].filter((id) => id !== wolfVictimId));
-      setAncienLivesRemaining(1);
+    if (!lovers && nightOutcome.lovers) setLovers(nightOutcome.lovers);
+    if (!enfantModel && nightOutcome.enfantModel) setEnfantModel(nightOutcome.enfantModel);
+    if (nightOutcome.ancienLivesRemaining !== ancienLivesRemaining) {
+      setAncienLivesRemaining(nightOutcome.ancienLivesRemaining);
     }
-    const nextPlayers = deathIds.size > 0
-      ? players.map((p) => (deathIds.has(p.id) ? { ...p, isAlive: false } : p))
+    if (nightOutcome.villagePowersLost) {
+      setVillagePowersLost(true);
+    }
+
+    const deathIdsSet = new Set(nightOutcome.deaths.map((d) => d.playerId));
+    const nextPlayers = deathIdsSet.size > 0
+      ? players.map((p) => (deathIdsSet.has(p.id) ? { ...p, isAlive: false } : p))
       : players;
     setPlayers(nextPlayers);
 
     // Enfant Sauvage becomes a wolf if his model died this night
     let nextRoleAssignments = roleAssignments;
-    if (currentEnfantModel) {
-      const [enfantId, modelId] = currentEnfantModel;
-      const modelDied = deathIds.has(modelId);
+    if (nightOutcome.enfantModel) {
+      const [enfantId, modelId] = nightOutcome.enfantModel;
+      const modelDied = deathIdsSet.has(modelId);
       const enfantAlive = nextPlayers.some((p) => p.id === enfantId && p.isAlive);
       if (modelDied && enfantAlive) {
         const currentWolves = new Set(roleAssignments['loup-garou'] ?? []);
@@ -441,33 +414,27 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
       }
     }
 
-    if (deathIds.size > 0) {
-      const witchSel = stepSelections['sorciere'] ?? [];
-      const witchKillId = witchSel.find((id) => id !== '__heal__');
-      const loverIds = new Set(currentLovers ?? []);
-
-      const entries: DeathEntry[] = [];
-      const loupBlancSoloId = (stepSelections['loup-blanc-solo'] ?? [])[0] ? Number((stepSelections['loup-blanc-solo'] ?? [])[0]) : null;
-      for (const id of deathIds) {
-        const player = players.find((p) => p.id === id);
-        if (!player) continue;
-        let cause: DeathEntry['cause'] = 'loup-garou';
-        if (witchKillId && Number(witchKillId) === id) cause = 'sorciere';
-        else if (loupBlancSoloId === id) cause = 'loup-blanc';
-        else if (loverIds.has(id) && wolfVictimId !== id && witchKillId !== String(id)) cause = 'amour';
-        entries.push({ playerName: player.name, night, cause });
-        // L'Ancien killed by villager power (sorcière) or love → village loses all powers
-        if (ancienIds.has(id) && (cause === 'sorciere' || cause === 'amour')) {
-          setVillagePowersLost(true);
-        }
+    if (nightOutcome.deaths.length > 0) {
+      const entries: DeathEntry[] = nightOutcome.deaths
+        .map((d) => {
+          const player = players.find((p) => p.id === d.playerId);
+          if (!player) return null;
+          return {
+            playerName: player.name,
+            night,
+            cause: d.cause,
+          } as DeathEntry;
+        })
+        .filter((e): e is DeathEntry => e != null);
+      if (entries.length > 0) {
+        setDeathLog((prev) => [...prev, ...entries]);
       }
-      setDeathLog((prev) => [...prev, ...entries]);
     }
 
     const w = checkWin(nextPlayers, nextRoleAssignments);
     if (w) { setWinner(w); setPhase('win'); }
     else setPhase('wake');
-  }, [pushUndo, currentChar, commitWitchPotions, lovers, stepSelections, players, roleAssignments, night, ancienLivesRemaining]);
+  }, [pushUndo, currentChar, commitWitchPotions, lovers, stepSelections, players, roleAssignments, night, ancienLivesRemaining, enfantModel]);
 
   // ── Day voting ────────────────────────────────────────────────────────────
   const handleDayPhase = useCallback(() => {
@@ -488,45 +455,63 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         return;
       }
 
+      const dayOutcome = resolveDayOutcome({
+        players,
+        roleAssignments,
+        lovers,
+        enfantModel,
+        votedPlayerId: playerId,
+      });
+
+      if (dayOutcome.villagePowersLost) {
+        setVillagePowersLost(true);
+      }
+
       let nextPlayers = players;
-      const entries: DeathEntry[] = [];
-      if (playerId !== null) {
-        const deathSet = new Set([playerId]);
-        if (lovers && (lovers[0] === playerId || lovers[1] === playerId)) {
-          deathSet.add(lovers[0]);
-          deathSet.add(lovers[1]);
-        }
-        // L'Ancien eliminated by vote or villager power → all village roles lose their powers
-        const ancienIds = new Set(roleAssignments['ancien'] ?? []);
-        if ([...deathSet].some((id) => ancienIds.has(id))) {
-          setVillagePowersLost(true);
-        }
-        nextPlayers = players.map((p) => (deathSet.has(p.id) ? { ...p, isAlive: false } : p));
+      if (dayOutcome.deaths.length > 0) {
+        const deathSet = new Set(dayOutcome.deaths.map((d) => d.playerId));
+        nextPlayers = players.map((p) =>
+          deathSet.has(p.id) ? { ...p, isAlive: false } : p
+        );
         setPlayers(nextPlayers);
 
-        // Enfant Sauvage becomes a wolf if his model dies during the day
         if (enfantModel) {
           const [enfantId, modelId] = enfantModel;
           const modelDied = deathSet.has(modelId);
-          const enfantAlive = nextPlayers.some((p) => p.id === enfantId && p.isAlive);
+          const enfantAlive = nextPlayers.some(
+            (p) => p.id === enfantId && p.isAlive
+          );
           if (modelDied && enfantAlive) {
             setRoleAssignments((prev) => ({
               ...prev,
-              'enfant-sauvage': (prev['enfant-sauvage'] ?? []).filter((id) => id !== enfantId),
+              'enfant-sauvage': (prev['enfant-sauvage'] ?? []).filter(
+                (id) => id !== enfantId
+              ),
               'loup-garou': [...(prev['loup-garou'] ?? []), enfantId],
             }));
           }
         }
 
-        for (const id of deathSet) {
-          const player = players.find((p) => p.id === id);
-          if (!player) continue;
-          const cause: DeathEntry['cause'] = id === playerId ? 'village' : 'amour';
-          entries.push({ playerName: player.name, night, cause });
+        const entries: DeathEntry[] = dayOutcome.deaths
+          .map((d) => {
+            const player = players.find((p) => p.id === d.playerId);
+            if (!player) return null;
+            return {
+              playerName: player.name,
+              night,
+              cause: d.cause,
+            } as DeathEntry;
+          })
+          .filter((e): e is DeathEntry => e != null);
+        if (entries.length > 0) {
+          setDeathLog((prev) => [...prev, ...entries]);
+          setDayResultDeaths(entries);
+        } else {
+          setDayResultDeaths([]);
         }
-        setDeathLog((prev) => [...prev, ...entries]);
+      } else {
+        setDayResultDeaths([]);
       }
-      setDayResultDeaths(entries);
 
       setStepSelections({});
       setCurrentStep(0);
@@ -692,8 +677,15 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         {phase === 'wake' && (
           <VillageWakeV2
             players={players}
-            stepSelections={stepSelections}
-            lovers={lovers}
+            nightOutcome={resolveNightOutcome({
+              players,
+              night,
+              stepSelections,
+              roleAssignments,
+              lovers,
+              enfantModel,
+              ancienLivesRemaining,
+            })}
             roleAssignments={roleAssignments}
             onDayPhase={handleDayPhase}
           />
