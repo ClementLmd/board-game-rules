@@ -54,7 +54,7 @@ export const CHARACTERS: Character[] = [
   },
   {
     id: 'loup-garou',
-    name: 'Les Loups-Garous',
+    name: 'Loup-Garou',
     image: '/images/loup-garou.jpg',
     team: 'loups',
     wakeUpOrder: 3,
@@ -119,10 +119,11 @@ export const CHARACTERS: Character[] = [
     name: 'Le Chasseur',
     image: '/images/chasseur.jpg',
     team: 'village',
-    wakeUpOrder: 0,
-    nightAction: "Le Chasseur n'a pas d'action de nuit. Son pouvoir se déclenche à sa mort.",
+    wakeUpOrder: 9,
+    nightAction: "Le Chasseur se réveille. Le Maître du Jeu lui confirme son rôle discrètement. À sa mort (quelle qu'en soit la cause), il pourra tirer sur un joueur de son choix avant de rendre son dernier souffle.",
     maxTargets: 0,
     unique: true,
+    night1Only: true,
   },
   {
     id: 'ange',
