@@ -22,24 +22,28 @@ interface RoleConfigV2Props {
   onStart: (config: RoleConfigV2, assignRolesNow: boolean) => void;
   /** Return to player setup to modify the list of players */
   onBack?: () => void;
+  /** Pre-fill with a previously configured role set (e.g. when coming back from manual assign) */
+  initialConfig?: RoleConfigV2;
 }
 
-export function RoleConfigV2({ playerCount, onStart, onBack }: RoleConfigV2Props) {
-  const [config, setConfig] = useState<RoleConfigV2>(() => ({
-    'loup-garou': Math.max(2, Math.floor(playerCount / 4)),
-    voyante: 1,
-    sorciere: 1,
-    cupidon: 0,
-    'enfant-sauvage': 0,
-    renard: 0,
-    'montreur-ours': 0,
-    ancien: 0,
-    chasseur: 0,
-    'petite-fille': 0,
-    'loup-blanc': 0,
-    ange: 0,
-    villageois: 0,
-  }));
+export function RoleConfigV2({ playerCount, onStart, onBack, initialConfig }: RoleConfigV2Props) {
+  const [config, setConfig] = useState<RoleConfigV2>(() =>
+    initialConfig ?? {
+      'loup-garou': Math.max(2, Math.floor(playerCount / 4)),
+      voyante: 1,
+      sorciere: 1,
+      cupidon: 0,
+      'enfant-sauvage': 0,
+      renard: 0,
+      'montreur-ours': 0,
+      ancien: 0,
+      chasseur: 0,
+      'petite-fille': 0,
+      'loup-blanc': 0,
+      ange: 0,
+      villageois: 0,
+    }
+  );
   const [assignRolesNow, setAssignRolesNow] = useState(false);
 
   const total = Object.values(config).reduce((a, b) => a + b, 0);
