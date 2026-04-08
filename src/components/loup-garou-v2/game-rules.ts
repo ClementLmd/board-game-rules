@@ -23,6 +23,7 @@ export interface NightOutcomeEntry {
 export interface NightOutcome {
   deaths: NightOutcomeEntry[];
   ancienLivesRemaining: number;
+  ancienSurvivedAttack: boolean;
   villagePowersLost: boolean;
   // resolved lovers / enfant model for subsequent phases
   lovers: [number, number] | null;
@@ -107,13 +108,13 @@ export function resolveNightOutcome(options: {
   // Ancien: two lives vs werewolves — first wolf attack he survives
   const ancienIds = new Set(roleAssignments['ancien'] ?? []);
   let nextAncienLives = ancienLivesRemaining;
-  if (
+  const ancienSurvivedAttack =
     wolfVictimId != null &&
     ancienIds.has(wolfVictimId) &&
     !healed &&
-    ancienLivesRemaining === 2
-  ) {
-    deaths.delete(wolfVictimId);
+    ancienLivesRemaining === 2;
+  if (ancienSurvivedAttack) {
+    deaths.delete(wolfVictimId!);
     nextAncienLives = 1;
   }
 
@@ -139,6 +140,7 @@ export function resolveNightOutcome(options: {
   return {
     deaths: entries,
     ancienLivesRemaining: nextAncienLives,
+    ancienSurvivedAttack,
     villagePowersLost,
     lovers: currentLovers,
     enfantModel: currentEnfantModel,
@@ -210,7 +212,8 @@ export function checkWin(
   // Loup-Blanc solo win: only the white wolf is alive
   if (alive.length === 1 && whiteWolves.has(alive[0].id)) return 'loup-blanc';
   if (aliveWolves.length === 0) return 'village';
-  if (aliveVillagers.length === 0) return 'wolves';
+  // Wolves win when they equal or outnumber villagers — the village can no longer prevail
+  if (aliveWolves.length >= aliveVillagers.length) return 'wolves';
   return null;
 }
 
