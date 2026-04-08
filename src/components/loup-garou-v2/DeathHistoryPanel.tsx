@@ -2,16 +2,18 @@ import { X } from 'lucide-react';
 
 export interface DeathEntry {
   playerName: string;
+  playerRole?: string;
   night: number;
-  cause: 'loup-garou' | 'sorciere' | 'village' | 'amour' | 'loup-blanc';
+  cause: 'loup-garou' | 'sorciere' | 'village' | 'amour' | 'loup-blanc' | 'chasseur';
 }
 
 const CAUSE_LABELS: Record<DeathEntry['cause'], string> = {
-  'loup-garou': 'Loups-garous',
+  'loup-garou': 'Loup-Garou',
   sorciere: 'Poison',
   village: 'Vote',
   amour: 'Chagrin d\'amour',
   'loup-blanc': 'Loup-Blanc',
+  chasseur: 'Tir du Chasseur',
 };
 
 const CAUSE_COLORS: Record<DeathEntry['cause'], string> = {
@@ -20,6 +22,7 @@ const CAUSE_COLORS: Record<DeathEntry['cause'], string> = {
   village: 'bg-yellow-900/40 text-yellow-400',
   amour: 'bg-pink-900/40 text-pink-400',
   'loup-blanc': 'bg-gray-700/40 text-gray-300',
+  chasseur: 'bg-orange-900/40 text-orange-400',
 };
 
 interface DeathHistoryPanelProps {
