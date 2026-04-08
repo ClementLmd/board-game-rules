@@ -46,7 +46,7 @@ export function DayResultV2({
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">Vote du village</span>
                   <span className="font-medium text-yellow-400">
-                    {villageDeath.playerName} 💀
+                    {villageDeath.playerName}{villageDeath.playerRole ? ` (${villageDeath.playerRole})` : ''} 💀
                   </span>
                 </div>
               )}
@@ -54,13 +54,13 @@ export function DayResultV2({
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">Chagrin d&apos;amour</span>
                   <span className="font-medium text-pink-400">
-                    {loverDeaths.map((d) => d.playerName).join(", ")} 💔
+                    {loverDeaths.map((d) => `${d.playerName}${d.playerRole ? ` (${d.playerRole})` : ''}`).join(", ")} 💔
                   </span>
                 </div>
               )}
               <div className="mt-1 rounded-md bg-red-900/20 px-3 py-2">
                 <p className="text-xs text-red-400">
-                  Mort(s) : {dayDeaths.map((d) => d.playerName).join(", ")}
+                  Mort(s) : {dayDeaths.map((d) => `${d.playerName}${d.playerRole ? ` (${d.playerRole})` : ''}`).join(", ")}
                 </p>
               </div>
             </>
