@@ -1,23 +1,46 @@
 import { Sun, Vote } from 'lucide-react';
-import type { Player } from './game-data';
+import { CHARACTERS, type Player } from './game-data';
 import type { NightOutcome } from './game-rules';
+import type { DeathEntry } from './DeathHistoryPanel';
 
 interface VillageWakeV2Props {
   players: Player[];
   nightOutcome: NightOutcome;
+  hunterShotDeaths?: DeathEntry[];
   roleAssignments: Record<string, number[]>;
   onDayPhase: () => void;
+}
+
+function buildRoleMap(roleAssignments: Record<string, number[]>): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const [roleId, playerIds] of Object.entries(roleAssignments)) {
+    const char = CHARACTERS.find((c) => c.id === roleId);
+    if (!char) continue;
+    for (const id of playerIds) map.set(id, char.name);
+  }
+  return map;
+}
+
+function withRole(name: string, playerId: number, roleMap: Map<number, string>): string {
+  const role = roleMap.get(playerId) ?? 'Villageois';
+  return `${name} (${role})`;
 }
 
 export function VillageWakeV2({
   players,
   nightOutcome,
+  hunterShotDeaths = [],
   roleAssignments,
   onDayPhase,
 }: VillageWakeV2Props) {
   const playerById = new Map(players.map((p) => [String(p.id), p]));
+  const roleMap = buildRoleMap(roleAssignments);
   const montreurIds = roleAssignments['montreur-ours'] ?? [];
   const montreurAlive = players.find((p) => montreurIds.includes(p.id) && p.isAlive);
+  const ancienIds = roleAssignments['ancien'] ?? [];
+  const ancienPlayer = nightOutcome.ancienSurvivedAttack
+    ? players.find((p) => ancienIds.includes(p.id)) ?? null
+    : null;
 
   const wolfVictimEntry = nightOutcome.deaths.find((d) => d.cause === 'loup-garou');
   const witchKillEntry = nightOutcome.deaths.find((d) => d.cause === 'sorciere');
@@ -60,16 +83,29 @@ export function VillageWakeV2({
           {wolfVictim && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Victime des loups</span>
-              <span className={wolfDied ? 'font-medium text-red-400' : 'font-medium text-emerald-400'}>
-                {wolfVictim.name} {witchHealed ? '(sauvé·e)' : '💀'}
+              <span className="font-medium text-red-400">
+                {withRole(wolfVictim.name, wolfVictim.id, roleMap)} 💀
               </span>
+            </div>
+          )}
+
+          {ancienPlayer && (
+            <div className="rounded-md border border-stone-700/50 bg-stone-900/40 px-3 py-2 text-sm">
+              <p className="font-semibold text-stone-300">
+                L&apos;Ancien a survécu à l&apos;attaque des loups
+              </p>
+              <p className="mt-0.5 text-xs text-stone-400">
+                {ancienPlayer.name} révèle sa carte — il lui reste une vie contre les loups.
+              </p>
             </div>
           )}
 
           {witchKillTarget && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Poison de la sorcière</span>
-              <span className="font-medium text-red-400">{witchKillTarget.name} 💀</span>
+              <span className="font-medium text-red-400">
+                {withRole(witchKillTarget.name, witchKillTarget.id, roleMap)} 💀
+              </span>
             </div>
           )}
 
@@ -77,19 +113,36 @@ export function VillageWakeV2({
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Chagrin d&apos;amour</span>
               <span className="font-medium text-pink-400">
-                {loverChainDeaths.map((p) => p.name).join(', ')} 💔
+                {loverChainDeaths.map((p) => withRole(p.name, p.id, roleMap)).join(', ')} 💔
               </span>
             </div>
           )}
 
-          {deaths.length === 0 && (
+          {hunterShotDeaths.length > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-400">Tir du Chasseur</span>
+              <span className="font-medium text-orange-400">
+                {hunterShotDeaths.map((d) =>
+                  d.playerRole ? `${d.playerName} (${d.playerRole})` : d.playerName
+                ).join(', ')} 🎯
+              </span>
+            </div>
+          )}
+
+          {deaths.length === 0 && hunterShotDeaths.length === 0 && (
             <p className="text-sm text-gray-500">Personne n&apos;est mort cette nuit.</p>
           )}
 
-          {deaths.length > 0 && (
+          {(deaths.length > 0 || hunterShotDeaths.length > 0) && (
             <div className="mt-1 rounded-md bg-red-900/20 px-3 py-2">
               <p className="text-xs text-red-400">
-                Mort(s) : {deaths.map((d) => d.name).join(', ')}
+                Mort(s) :{' '}
+                {[
+                  ...deaths.map((d) => withRole(d.name, d.id, roleMap)),
+                  ...hunterShotDeaths.map((d) =>
+                    d.playerRole ? `${d.playerName} (${d.playerRole})` : d.playerName
+                  ),
+                ].join(', ')}
               </p>
             </div>
           )}

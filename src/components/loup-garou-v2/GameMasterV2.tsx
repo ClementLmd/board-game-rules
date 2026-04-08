@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Users, Skull, Undo2, RefreshCw } from 'lucide-react';
 import {
+  CHARACTERS,
   getNightCharactersForConfig,
   loadGameHistory,
   saveGameToHistory,
@@ -8,10 +9,21 @@ import {
   type Player,
   type RoleConfigV2,
 } from './game-data';
+
+function getPlayerRoleName(playerId: number, roleAssignments: Record<string, number[]>): string {
+  for (const [roleId, playerIds] of Object.entries(roleAssignments)) {
+    if (playerIds.includes(playerId)) {
+      const char = CHARACTERS.find((c) => c.id === roleId);
+      return char?.name ?? 'Villageois';
+    }
+  }
+  return 'Villageois';
+}
 import {
   resolveNightOutcome,
   resolveDayOutcome,
   checkWin,
+  type NightOutcome,
 } from './game-rules';
 import { GameSetupV2 } from './GameSetupV2';
 import { RoleConfigV2 as RoleConfigScreen } from './RoleConfigV2';
@@ -24,8 +36,9 @@ import { WinScreenV2 } from './WinScreenV2';
 import { DeathHistoryPanel, type DeathEntry } from './DeathHistoryPanel';
 import { GameHistoryPanel } from './GameHistoryPanel';
 import { ManualRoleAssignV2 } from './ManualRoleAssignV2';
+import { HunterShotV2 } from './HunterShotV2';
 
-type Phase = 'setup' | 'roleConfig' | 'manualAssign' | 'night' | 'wake' | 'day' | 'dayResult' | 'win';
+type Phase = 'setup' | 'roleConfig' | 'manualAssign' | 'night' | 'wake' | 'hunterShot' | 'day' | 'dayResult' | 'win';
 type Winner = 'wolves' | 'village' | 'loup-blanc' | 'ange';
 
 const STORAGE_KEY = 'loup-garou-v2';
@@ -117,6 +130,9 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [historyEntries, setHistoryEntries] = useState<ReturnType<typeof loadGameHistory>>([]);
   const [initialPlayerNames, setInitialPlayerNames] = useState<string[] | null>(null);
+  const [lastNightOutcome, setLastNightOutcome] = useState<NightOutcome | null>(null);
+  const [hunterPendingNextPhase, setHunterPendingNextPhase] = useState<'wake' | 'dayResult' | null>(null);
+  const [hunterShotDeaths, setHunterShotDeaths] = useState<DeathEntry[]>([]);
   const savedToHistoryRef = useRef(false);
 
   // ── Undo stack ─────────────────────────────────────────────────────────────
@@ -421,6 +437,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
           if (!player) return null;
           return {
             playerName: player.name,
+            playerRole: getPlayerRoleName(d.playerId, roleAssignments),
             night,
             cause: d.cause,
           } as DeathEntry;
@@ -431,9 +448,23 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
       }
     }
 
+    setLastNightOutcome(nightOutcome);
+
     const w = checkWin(nextPlayers, nextRoleAssignments);
-    if (w) { setWinner(w); setPhase('win'); }
-    else setPhase('wake');
+    if (w) {
+      setWinner(w);
+      setPhase('win');
+    } else {
+      const chasseurIds = new Set(roleAssignments['chasseur'] ?? []);
+      const hunterDied = nightOutcome.deaths.some((d) => chasseurIds.has(d.playerId));
+      if (hunterDied) {
+        setHunterPendingNextPhase('wake');
+        setHunterShotDeaths([]);
+        setPhase('hunterShot');
+      } else {
+        setPhase('wake');
+      }
+    }
   }, [pushUndo, currentChar, commitWitchPotions, lovers, stepSelections, players, roleAssignments, night, ancienLivesRemaining, enfantModel]);
 
   // ── Day voting ────────────────────────────────────────────────────────────
@@ -498,6 +529,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             if (!player) return null;
             return {
               playerName: player.name,
+              playerRole: getPlayerRoleName(d.playerId, roleAssignments),
               night,
               cause: d.cause,
             } as DeathEntry;
@@ -517,16 +549,98 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
       setCurrentStep(0);
 
       const w = checkWin(nextPlayers, roleAssignments);
-      if (w) { setWinner(w); setPhase('win'); }
-      else setPhase('dayResult');
+      if (w) {
+        setWinner(w);
+        setPhase('win');
+      } else {
+        const chasseurIds = new Set(roleAssignments['chasseur'] ?? []);
+        const hunterDied = dayOutcome.deaths.some((d) => chasseurIds.has(d.playerId));
+        if (hunterDied) {
+          setHunterPendingNextPhase('dayResult');
+          setHunterShotDeaths([]);
+          setPhase('hunterShot');
+        } else {
+          setPhase('dayResult');
+        }
+      }
     },
-    [pushUndo, players, lovers, roleAssignments, night]
+    [pushUndo, players, lovers, roleAssignments, night, enfantModel]
   );
 
   const handleNextNight = useCallback(() => {
     setNight((n) => n + 1);
     setPhase('night');
   }, []);
+
+  const handleHunterShot = useCallback(
+    (targetId: number | null) => {
+      pushUndo();
+
+      if (targetId === null) {
+        setHunterPendingNextPhase(null);
+        setPhase(hunterPendingNextPhase ?? 'wake');
+        return;
+      }
+
+      const diedIds = new Set<number>([targetId]);
+      if (lovers) {
+        const [a, b] = lovers;
+        if (a === targetId || b === targetId) {
+          diedIds.add(a);
+          diedIds.add(b);
+        }
+      }
+
+      const nextPlayers = players.map((p) =>
+        diedIds.has(p.id) ? { ...p, isAlive: false } : p
+      );
+      setPlayers(nextPlayers);
+
+      if (enfantModel) {
+        const [enfantId, modelId] = enfantModel;
+        if (diedIds.has(modelId)) {
+          const enfantAlive = nextPlayers.some((p) => p.id === enfantId && p.isAlive);
+          if (enfantAlive) {
+            setRoleAssignments((prev) => ({
+              ...prev,
+              'enfant-sauvage': (prev['enfant-sauvage'] ?? []).filter((id) => id !== enfantId),
+              'loup-garou': [...(prev['loup-garou'] ?? []), enfantId],
+            }));
+          }
+        }
+      }
+
+      const entries: DeathEntry[] = Array.from(diedIds)
+        .map((id) => {
+          const player = players.find((p) => p.id === id);
+          if (!player) return null;
+          return {
+            playerName: player.name,
+            playerRole: getPlayerRoleName(id, roleAssignments),
+            night,
+            cause: (id === targetId ? 'chasseur' : 'amour') as DeathEntry['cause'],
+          } as DeathEntry;
+        })
+        .filter((e): e is DeathEntry => e != null);
+
+      setDeathLog((prev) => [...prev, ...entries]);
+      setHunterShotDeaths(entries);
+
+      if (hunterPendingNextPhase === 'dayResult') {
+        setDayResultDeaths((prev) => [...prev, ...entries]);
+      }
+
+      const w = checkWin(nextPlayers, roleAssignments);
+      if (w) {
+        setWinner(w);
+        setPhase('win');
+      } else {
+        setPhase(hunterPendingNextPhase ?? 'wake');
+      }
+      setHunterPendingNextPhase(null);
+    },
+    [pushUndo, players, lovers, night, roleAssignments, hunterPendingNextPhase, enfantModel]
+  );
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const wolfVictimId = useMemo(() => {
@@ -542,7 +656,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
     return sel.some((id) => wolfIds.has(Number(id)));
   }, [currentChar?.id, stepSelections, roleAssignments]);
 
-  const isNightPhase = phase === 'night' || phase === 'wake' || phase === 'day' || phase === 'dayResult';
+  const isNightPhase = phase === 'night' || phase === 'wake' || phase === 'hunterShot' || phase === 'day' || phase === 'dayResult';
   const isWinPhase = phase === 'win';
 
   return (
@@ -567,6 +681,11 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
             {phase === 'wake' && (
               <p className="text-sm font-semibold text-gray-100">
                 Réveil du village — Nuit {night}
+              </p>
+            )}
+            {phase === 'hunterShot' && (
+              <p className="text-sm font-semibold text-orange-300">
+                Tir du Chasseur — Nuit {night}
               </p>
             )}
             {phase === 'day' && (
@@ -632,6 +751,7 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
         {phase === 'roleConfig' && (
           <RoleConfigScreen
             playerCount={players.length}
+            initialConfig={Object.keys(roleConfig).length > 0 ? roleConfig : undefined}
             onStart={handleRoleConfigDone}
             onBack={handleBackFromRoleConfig}
           />
@@ -674,22 +794,28 @@ export function GameMasterV2({ onNewGame }: GameMasterV2Props) {
           />
         )}
 
-        {phase === 'wake' && (
+        {phase === 'wake' && lastNightOutcome && (
           <VillageWakeV2
             players={players}
-            nightOutcome={resolveNightOutcome({
-              players,
-              night,
-              stepSelections,
-              roleAssignments,
-              lovers,
-              enfantModel,
-              ancienLivesRemaining,
-            })}
+            nightOutcome={lastNightOutcome}
+            hunterShotDeaths={hunterShotDeaths}
             roleAssignments={roleAssignments}
             onDayPhase={handleDayPhase}
           />
         )}
+
+        {phase === 'hunterShot' && (() => {
+          const chasseurIds = roleAssignments['chasseur'] ?? [];
+          const hunterPlayer = players.find((p) => chasseurIds.includes(p.id)) ?? null;
+          if (!hunterPlayer) return null;
+          return (
+            <HunterShotV2
+              hunterPlayer={hunterPlayer}
+              alivePlayers={alivePlayers}
+              onShoot={handleHunterShot}
+            />
+          );
+        })()}
 
         {phase === 'day' && (
           <DayPhaseV2

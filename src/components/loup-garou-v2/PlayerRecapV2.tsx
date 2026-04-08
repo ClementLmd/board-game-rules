@@ -94,10 +94,12 @@ function PlayerRow({
       }`}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-100">{player.name}</p>
-        {role && (
-          <p className="text-xs text-gray-500">{role}</p>
-        )}
+        <p className="truncate text-sm font-medium text-gray-100">
+          {player.name}
+          {role && (
+            <span className="ml-1.5 font-normal text-gray-400">({role})</span>
+          )}
+        </p>
       </div>
       {isLover && <Heart className="h-3 w-3 shrink-0 text-pink-400" />}
       {!alive && <span className="text-[10px] font-medium text-red-400">Mort</span>}
