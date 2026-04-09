@@ -1,0 +1,172 @@
+---
+export const prerender = false;
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import GameDaySchedule from '../../../components/competitions/GameDaySchedule';
+import MemberManager from '../../../components/competitions/MemberManager';
+import ResultsValidator, { type GameDayWithResults, type ResultEntry } from '../../../components/competitions/ResultsValidator';
+import InviteCode from '../../../components/competitions/InviteCode';
+
+const id = Astro.params.id!;
+const user = Astro.locals.user;
+const supabase = Astro.locals.supabase;
+
+if (!user) {
+  return Astro.redirect(`/auth/login?next=/competitions/${id}/manage/`);
+}
+
+const { data: competition } = await supabase
+  .from('competitions')
+  .select('*')
+  .eq('id', id)
+  .single();
+
+if (!competition || competition.admin_id !== user.id) {
+  return Astro.redirect(`/competitions/${id}/`);
+}
+
+// Fetch all members
+const { data: members } = await supabase
+  .from('competition_members')
+  .select('id, user_id, status, total_points, profiles(username, avatar_url)')
+  .eq('competition_id', id)
+  .order('joined_at', { ascending: true });
+
+// Fetch game days
+const { data: gameDays } = await supabase
+  .from('game_days')
+  .select('*')
+  .eq('competition_id', id)
+  .order('scheduled_date', { ascending: false });
+
+// Fetch results for open/closed game days (with player profiles)
+const relevantDayIds = (gameDays ?? [])
+  .filter((d: { status: string }) => d.status === 'open' || d.status === 'closed')
+  .map((d: { id: string }) => d.id);
+
+let resultsByDay: Record<string, unknown[]> = {};
+if (relevantDayIds.length > 0) {
+  const { data: results } = await supabase
+    .from('game_results')
+    .select('id, game_day_id, player_id, claimed_place, claimed_points, validated_points, status, profiles(username, avatar_url)')
+    .in('game_day_id', relevantDayIds)
+    .order('created_at', { ascending: true });
+
+  results?.forEach((r) => {
+    if (!resultsByDay[r.game_day_id]) resultsByDay[r.game_day_id] = [];
+    resultsByDay[r.game_day_id].push(r);
+  });
+}
+
+const gameDaysWithResults: GameDayWithResults[] = (gameDays ?? [])
+  .filter((d) => d.status === 'open' || d.status === 'closed')
+  .map((d) => ({
+    ...d,
+    results: (resultsByDay[d.id] ?? []) as ResultEntry[],
+  }));
+
+const pendingCount = (members ?? []).filter((m) => m.status === 'pending').length;
+---
+
+<BaseLayout title={`Gérer – ${competition.name}`} darkHeader>
+  <div class="min-h-screen bg-gray-950 text-gray-100">
+    <!-- Header -->
+    <div class="bg-gradient-to-b from-gray-900 to-gray-950 border-b border-gray-800 py-10 px-4">
+      <div class="max-w-5xl mx-auto">
+        <a href={`/competitions/${id}/`} class="text-gray-400 hover:text-white text-sm flex items-center gap-1 mb-4 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Voir la compétition
+        </a>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-violet-700 flex items-center justify-center text-white font-bold text-lg">
+            ⚙
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold text-white">{competition.name}</h1>
+            <p class="text-gray-400 text-sm">Administration de la compétition</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-4 py-10">
+      <div class="grid lg:grid-cols-5 gap-8">
+        <!-- Left col: game days + results -->
+        <div class="lg:col-span-3 space-y-8">
+          <!-- Game Days -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <GameDaySchedule
+              client:load
+              competitionId={id!}
+              initialGameDays={gameDays ?? []}
+            />
+          </div>
+
+          <!-- Results to validate -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <h3 class="text-base font-semibold text-white mb-4">Valider les résultats</h3>
+            <ResultsValidator
+              client:load
+              competitionId={id!}
+              initialGameDays={gameDaysWithResults}
+            />
+          </div>
+        </div>
+
+        <!-- Right col: invite + members + settings -->
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Invite code -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <InviteCode
+              client:load
+              competitionId={id!}
+              code={competition.invite_code ?? null}
+            />
+          </div>
+
+          <!-- Members -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-base font-semibold text-white">Membres</h3>
+              {pendingCount > 0 && (
+                <span class="px-2 py-0.5 bg-amber-900/40 text-amber-400 border border-amber-700 rounded-full text-xs font-medium">
+                  {pendingCount} en attente
+                </span>
+              )}
+            </div>
+            <MemberManager
+              client:load
+              competitionId={id!}
+              initialMembers={(members ?? []) as Parameters<typeof MemberManager>[0]['initialMembers']}
+            />
+          </div>
+
+          <!-- Competition settings -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <h3 class="text-base font-semibold text-white mb-4">Paramètres</h3>
+            <form method="POST" action={`/api/competitions/${id}/update`} class="space-y-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Statut</label>
+                <select
+                  name="status"
+                  class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="active" selected={competition.status === 'active'}>Active</option>
+                  <option value="draft" selected={competition.status === 'draft'}>Brouillon</option>
+                  <option value="finished" selected={competition.status === 'finished'}>Terminée</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                class="w-full px-4 py-2 bg-gray-700 text-gray-200 rounded-lg text-sm hover:bg-gray-600 transition-colors"
+              >
+                Sauvegarder
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

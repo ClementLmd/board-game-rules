@@ -10,7 +10,7 @@ function getStartButton(container: HTMLElement) {
 describe('RoleConfigV2', () => {
   it('renders with default loup-garou count for 8 players', () => {
     const { container } = render(<RoleConfigV2 playerCount={8} onStart={() => {}} />);
-    const loupGarouRow = within(container).getAllByText('Les Loups-Garous')[0].closest('div');
+    const loupGarouRow = within(container).getAllByText('Loups-Garous')[0].closest('div');
     expect(loupGarouRow).toBeInTheDocument();
     expect(within(container).getByText('2', { selector: '.w-5' })).toBeInTheDocument();
   });
@@ -47,7 +47,7 @@ describe('RoleConfigV2', () => {
   it('minus button decreases count', async () => {
     const user = userEvent.setup();
     const { container } = render(<RoleConfigV2 playerCount={8} onStart={() => {}} />);
-    const removeLoup = within(container).getAllByLabelText('Retirer Les Loups-Garous')[0];
+    const removeLoup = within(container).getAllByLabelText('Retirer Loup-Garou')[0];
     await user.click(removeLoup);
     await user.click(removeLoup);
     // Started at 2, after 2 clicks should be 0
