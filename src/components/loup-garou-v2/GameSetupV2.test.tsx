@@ -30,13 +30,11 @@ describe('GameSetupV2', () => {
     expect(inputs).toHaveLength(6);
   });
 
-  it('shows error when starting with empty names', async () => {
-    const user = userEvent.setup();
+  it('start button is disabled when names are empty', () => {
     const onStart = vi.fn();
     const { container } = render(<GameSetupV2 onStart={onStart} />);
     const startBtn = within(container).getAllByText('Commencer la nuit')[0];
-    await user.click(startBtn);
-    expect(screen.getByText('Tous les joueurs doivent avoir un nom.')).toBeInTheDocument();
+    expect(startBtn).toBeDisabled();
     expect(onStart).not.toHaveBeenCalled();
   });
 
