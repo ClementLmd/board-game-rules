@@ -1,4 +1,6 @@
 ---
+import UserMenu from './competitions/UserMenu';
+
 interface Props {
   dark?: boolean;
 }
@@ -7,10 +9,29 @@ const { dark = false } = Astro.props;
 const navLinks = [
   { href: '/', label: 'Accueil' },
   { href: '/jeux/', label: 'Tous les jeux' },
+  { href: '/competitions/', label: 'Compétitions' },
   { href: '/a-propos/', label: 'A propos' },
 ];
 
 const currentPath = Astro.url.pathname;
+const user = Astro.locals.user ?? null;
+
+let profile = null;
+let unreadCount = 0;
+
+if (user && Astro.locals.supabase) {
+  try {
+    const supabase = Astro.locals.supabase;
+    const [profileRes, notifRes] = await Promise.all([
+      supabase.from('profiles').select('username, avatar_url').eq('id', user.id).single(),
+      supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
+    ]);
+    profile = profileRes.data;
+    unreadCount = notifRes.count ?? 0;
+  } catch {
+    // graceful fallback
+  }
+}
 
 const headerClass = dark
   ? 'bg-gray-950/95 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50'
@@ -53,6 +74,39 @@ const mobileButtonClass = dark
         ))}
       </nav>
 
+      <!-- Auth -->
+      <div class="hidden md:flex items-center gap-2">
+        {user && profile ? (
+          <UserMenu
+            client:load
+            username={profile.username}
+            avatarUrl={profile.avatar_url}
+            unreadCount={unreadCount}
+            userId={user.id}
+          />
+        ) : user ? (
+          <UserMenu
+            client:load
+            username={null}
+            avatarUrl={null}
+            unreadCount={unreadCount}
+            userId={user.id}
+          />
+        ) : (
+          <a
+            href="/auth/login"
+            class:list={[
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              dark
+                ? 'bg-violet-700 text-white hover:bg-violet-600'
+                : 'bg-violet-600 text-white hover:bg-violet-700',
+            ]}
+          >
+            Connexion
+          </a>
+        )}
+      </div>
+
       <!-- Mobile menu button -->
       <button
         id="mobile-menu-btn"
@@ -83,6 +137,23 @@ const mobileButtonClass = dark
             {link.label}
           </a>
         ))}
+        <div class="border-t border-gray-100 mt-2 pt-2">
+          {user ? (
+            <a
+              href="/profile/"
+              class:list={['px-4 py-2.5 rounded-lg text-sm font-medium transition-colors', linkIdle]}
+            >
+              Mon profil {unreadCount > 0 && <span class="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">{unreadCount}</span>}
+            </a>
+          ) : (
+            <a
+              href="/auth/login"
+              class:list={['px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-violet-600 text-white', '']}
+            >
+              Connexion
+            </a>
+          )}
+        </div>
       </div>
     </nav>
   </div>
