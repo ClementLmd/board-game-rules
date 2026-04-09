@@ -54,7 +54,7 @@ if (user && supabase) {
 }
 ---
 
-<BaseLayout title="Compétitions – Règles du Jeu" description="Gérez vos compétitions et rejoignez-en de nouvelles." darkHeader>
+<BaseLayout title="Compétitions – Règles du Jeu" description="Gérez vos compétitions et rejoignez-en de nouvelles." darkHeader darkFooter>
   <div class="min-h-screen bg-gray-950 text-gray-100">
     <!-- Hero -->
     <div class="bg-gradient-to-b from-gray-900 to-gray-950 border-b border-gray-800 py-12 px-4">
@@ -67,7 +67,7 @@ if (user && supabase) {
           {user ? (
             <a
               href="/competitions/create/"
-              class="flex items-center gap-2 px-5 py-2.5 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors text-sm"
+              class="mx-auto sm:mx-0 flex items-center gap-2 px-5 py-2.5 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-colors text-sm"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />

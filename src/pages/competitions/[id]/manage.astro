@@ -67,7 +67,7 @@ const gameDaysWithResults: GameDayWithResults[] = (gameDays ?? [])
 const pendingCount = (members ?? []).filter((m) => m.status === 'pending').length;
 ---
 
-<BaseLayout title={`Gérer – ${competition.name}`} darkHeader>
+<BaseLayout title={`Gérer – ${competition.name}`} darkHeader darkFooter>
   <div class="min-h-screen bg-gray-950 text-gray-100">
     <!-- Header -->
     <div class="bg-gradient-to-b from-gray-900 to-gray-950 border-b border-gray-800 py-10 px-4">
