@@ -19,8 +19,8 @@ const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
   <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
     <!-- Page header -->
     <div class="mb-8">
-      <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Tous les jeux</h1>
-      <p class="text-gray-500">
+      <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">Tous les jeux</h1>
+      <p class="text-gray-500 dark:text-gray-400">
         {games.length} {games.length > 1 ? 'jeux disponibles' : 'jeu disponible'}
       </p>
     </div>
@@ -36,14 +36,14 @@ const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
           <label for="filter-difficulty" class="sr-only">Filtrer par difficulté</label>
           <select
             id="filter-difficulty"
-            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
+            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:ring-violet-500"
           >
             <option value="">Toutes les difficultés</option>
             {allDifficulties.map((d) => (
               <option value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
             ))}
           </select>
-          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -53,14 +53,14 @@ const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
           <label for="filter-category" class="sr-only">Filtrer par catégorie</label>
           <select
             id="filter-category"
-            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
+            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:ring-violet-500"
           >
             <option value="">Toutes les catégories</option>
             {allCategories.map((cat) => (
               <option value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
             ))}
           </select>
-          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -70,7 +70,7 @@ const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
           <label for="filter-players" class="sr-only">Filtrer par nombre de joueurs</label>
           <select
             id="filter-players"
-            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
+            class="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:ring-violet-500"
           >
             <option value="">Nombre de joueurs</option>
             <option value="2">2 joueurs</option>
@@ -79,7 +79,7 @@ const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
             <option value="5">5 joueurs</option>
             <option value="6">6+ joueurs</option>
           </select>
-          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -87,7 +87,7 @@ const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
         <!-- Reset -->
         <button
           id="filter-reset"
-          class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors hidden"
+          class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors hidden"
         >
           Réinitialiser
         </button>
@@ -123,8 +123,8 @@ const allDifficulties = ['facile', 'moyen', 'difficile'] as const;
     <!-- Empty state -->
     <div id="empty-state" class="hidden py-16 text-center">
       <span class="text-5xl mb-4 block">🔍</span>
-      <h3 class="text-lg font-semibold text-gray-900 mb-1">Aucun jeu trouvé</h3>
-      <p class="text-gray-500 text-sm">Essayez de modifier vos filtres ou votre recherche.</p>
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Aucun jeu trouvé</h3>
+      <p class="text-gray-500 dark:text-gray-400 text-sm">Essayez de modifier vos filtres ou votre recherche.</p>
     </div>
   </section>
 </BaseLayout>
