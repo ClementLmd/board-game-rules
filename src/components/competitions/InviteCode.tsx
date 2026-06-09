@@ -8,16 +8,18 @@ interface InviteCodeProps {
 
 export default function InviteCode({ competitionId, code: initialCode }: InviteCodeProps) {
   const [code] = useState(initialCode);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [inviteUsername, setInviteUsername] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const copyCode = async () => {
-    if (!code) return;
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const shareLink = code ? `${window.location.origin}/competitions/?code=${code}` : '';
+
+  const copyValue = async (value: string, which: 'code' | 'link') => {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    setCopied(which);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -85,33 +87,57 @@ export default function InviteCode({ competitionId, code: initialCode }: InviteC
       {/* Code display */}
       <div>
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Code d'invitation</p>
-        <div className="flex items-center gap-3 p-4 bg-gray-800 rounded-xl border border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gray-800 rounded-xl border border-gray-700">
           <span className="flex-1 text-2xl font-mono font-bold text-white tracking-widest text-center">
             {code ?? '—'}
           </span>
-          <button
-            onClick={copyCode}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 text-white rounded-lg text-xs font-medium hover:bg-violet-600 transition-colors"
-          >
-            {copied ? (
-              <>
-                <svg className="w-3.5 h-3.5 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Copié !
-              </>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                Copier le code
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 justify-center">
+            <button
+              onClick={() => code && copyValue(code, 'code')}
+              disabled={!code}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 text-white rounded-lg text-xs font-medium hover:bg-violet-600 transition-colors disabled:opacity-50"
+            >
+              {copied === 'code' ? (
+                <>
+                  <svg className="w-3.5 h-3.5 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copié !
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Code
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => copyValue(shareLink, 'link')}
+              disabled={!code}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-violet-700 text-violet-300 rounded-lg text-xs font-medium hover:bg-violet-900/30 transition-colors disabled:opacity-50"
+            >
+              {copied === 'link' ? (
+                <>
+                  <svg className="w-3.5 h-3.5 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copié !
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5m6.328-1.828a4 4 0 010-5.656l3-3a4 4 0 015.656 5.656l-1.5 1.5" />
+                  </svg>
+                  Lien
+                </>
+              )}
+            </button>
+          </div>
         </div>
         <p className="text-xs text-gray-500 mt-1.5">
-          Partagez ce code à vos joueurs pour qu'ils rejoignent la compétition.
+          Partagez ce code ou le lien à vos joueurs pour qu'ils rejoignent la compétition.
         </p>
       </div>
 
