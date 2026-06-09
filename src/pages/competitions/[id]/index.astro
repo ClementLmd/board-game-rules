@@ -1,0 +1,249 @@
+---
+export const prerender = false;
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Leaderboard from '../../../components/competitions/Leaderboard';
+import GameDayResults from '../../../components/competitions/GameDayResults';
+
+const id = Astro.params.id!;
+const user = Astro.locals.user;
+const supabase = Astro.locals.supabase;
+
+const { data: competition } = await supabase
+  .from('competitions')
+  .select('*')
+  .eq('id', id)
+  .single();
+
+if (!competition) {
+  return Astro.redirect('/competitions/');
+}
+
+const isAdmin = user?.id === competition.admin_id;
+
+// Fetch leaderboard
+const { data: members } = await supabase
+  .from('competition_members')
+  .select('user_id, total_points, status, profiles(username, avatar_url)')
+  .eq('competition_id', id)
+  .eq('status', 'accepted')
+  .order('total_points', { ascending: false });
+
+// Check current user membership
+let userMembership = null;
+if (user && !isAdmin) {
+  const { data } = await supabase
+    .from('competition_members')
+    .select('status, total_points')
+    .eq('competition_id', id)
+    .eq('user_id', user.id)
+    .single();
+  userMembership = data;
+}
+
+// Fetch game days
+const { data: gameDays } = await supabase
+  .from('game_days')
+  .select('*')
+  .eq('competition_id', id)
+  .order('scheduled_date', { ascending: false });
+
+// Fetch user's results for open game days
+let userResults: Record<string, { claimed_place: number | null; claimed_points: number | null; status: string }> = {};
+if (user) {
+  const openDayIds = (gameDays ?? [])
+    .filter((d) => d.status === 'open')
+    .map((d) => d.id);
+
+  if (openDayIds.length > 0) {
+    const { data: results } = await supabase
+      .from('game_results')
+      .select('game_day_id, claimed_place, claimed_points, status')
+      .eq('player_id', user.id)
+      .in('game_day_id', openDayIds);
+    results?.forEach((r) => {
+      userResults[r.game_day_id] = r;
+    });
+  }
+}
+
+const isMember = isAdmin || userMembership?.status === 'accepted';
+---
+
+<BaseLayout
+  title={`${competition.name} – Compétitions`}
+  description={competition.description ?? `Compétition : ${competition.name}`}
+  darkHeader
+  darkFooter
+>
+  <div class="min-h-screen bg-gray-950 text-gray-100">
+    <!-- Header band -->
+    <div class="bg-gradient-to-b from-gray-900 to-gray-950 border-b border-gray-800 py-10 px-4">
+      <div class="max-w-5xl mx-auto">
+        <a href="/competitions/" class="text-gray-400 hover:text-white text-sm flex items-center gap-1 mb-4 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Toutes les compétitions
+        </a>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <h1 class="text-3xl font-bold text-white">{competition.name}</h1>
+              <span class:list={[
+                'text-xs px-2 py-0.5 rounded-full font-medium',
+                competition.status === 'active' ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-400'
+              ]}>
+                {competition.status === 'active' ? 'Active' : competition.status === 'draft' ? 'Brouillon' : 'Terminée'}
+              </span>
+            </div>
+            {competition.description && (
+              <p class="text-gray-400">{competition.description}</p>
+            )}
+          </div>
+          {isAdmin && (
+            <a
+              href={`/competitions/${id}/manage/`}
+              class="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Gérer la compétition
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-4 py-10">
+      <div class="grid lg:grid-cols-3 gap-8">
+        <!-- Game days column -->
+        <div class="lg:col-span-2 space-y-6">
+          <h2 class="text-xl font-bold text-white">Journées de jeu</h2>
+
+          {(!gameDays || gameDays.length === 0) && (
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center text-gray-400 text-sm">
+              Aucune journée planifiée pour l'instant.
+            </div>
+          )}
+
+          {gameDays?.map((day) => (
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              <div class="p-5 flex items-start justify-between gap-3">
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-lg">🎲</span>
+                    <h3 class="font-semibold text-white">{day.game_name}</h3>
+                    {day.multiplier > 1 && (
+                      <span class="text-xs px-2 py-0.5 bg-amber-900/50 text-amber-400 border border-amber-800 rounded-full font-medium">
+                        x{day.multiplier}
+                      </span>
+                    )}
+                  </div>
+                  <p class="text-sm text-gray-400">
+                    {new Date(day.scheduled_date).toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                  <p class="text-xs text-gray-500 mt-0.5">Base : {day.base_points} pts</p>
+                </div>
+                <span class:list={[
+                  'text-xs px-2 py-1 rounded-full font-medium flex-shrink-0',
+                  day.status === 'open' ? 'bg-green-900/50 text-green-400 border border-green-800' :
+                  day.status === 'upcoming' ? 'bg-blue-900/50 text-blue-400 border border-blue-800' :
+                  day.status === 'validated' ? 'bg-violet-900/50 text-violet-400 border border-violet-800' :
+                  'bg-gray-700 text-gray-400 border border-gray-600'
+                ]}>
+                  {day.status === 'open' ? 'Ouvert' : day.status === 'upcoming' ? 'À venir' : day.status === 'validated' ? 'Validé' : 'Fermé'}
+                </span>
+              </div>
+
+              {day.status === 'open' && isMember && user && (
+                <div class="border-t border-gray-800 p-5">
+                  <GameDayResults
+                    client:load
+                    gameDayId={day.id}
+                    userId={user.id}
+                    basePoints={day.base_points}
+                    multiplier={day.multiplier}
+                    existingResult={userResults[day.id] ?? null}
+                  />
+                </div>
+              )}
+
+              {day.status === 'open' && !isMember && (
+                <div class="border-t border-gray-800 p-4 text-sm text-gray-400 text-center">
+                  Rejoignez cette compétition pour soumettre vos résultats.
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <!-- Leaderboard sidebar -->
+        <div class="space-y-6">
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+            <h2 class="text-lg font-bold text-white mb-4">Classement</h2>
+            <Leaderboard
+              client:load
+              competitionId={id!}
+              initialData={(members ?? []) as Parameters<typeof Leaderboard>[0]['initialData']}
+              currentUserId={user?.id ?? null}
+            />
+          </div>
+
+          <!-- Stats -->
+          <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Infos</h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Membres</span>
+                <span class="text-white font-medium">{(members ?? []).length}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Journées</span>
+                <span class="text-white font-medium">{(gameDays ?? []).length}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Créée le</span>
+                <span class="text-white font-medium">
+                  {new Date(competition.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {!user && (
+            <a
+              href={`/auth/login?next=/competitions/${id}/`}
+              class="block w-full px-4 py-3 bg-violet-600 text-white rounded-xl text-sm font-medium text-center hover:bg-violet-700 transition-colors"
+            >
+              Connexion pour participer
+            </a>
+          )}
+
+          {user && !isAdmin && !userMembership && (
+            <form method="POST" action={`/api/competitions/${id}/join`}>
+              <button
+                type="submit"
+                class="w-full px-4 py-3 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors"
+              >
+                Rejoindre la compétition
+              </button>
+            </form>
+          )}
+
+          {userMembership?.status === 'pending' && (
+            <div class="p-3 bg-yellow-900/20 border border-yellow-800 rounded-xl text-yellow-400 text-sm text-center">
+              Votre demande est en attente d'approbation.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
