@@ -122,7 +122,10 @@ create trigger on_auth_user_created
 
 -- Limit manual pseudo changes to once every 24 hours
 create or replace function public.enforce_username_change_limit()
-returns trigger as $$
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
 begin
   if new.username is distinct from old.username then
     if old.username_changed_at is not null and old.username_changed_at > now() - interval '24 hours' then
@@ -134,7 +137,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 drop trigger if exists enforce_username_change_limit on public.profiles;
 create trigger enforce_username_change_limit

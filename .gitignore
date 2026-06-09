@@ -29,3 +29,6 @@ pnpm-debug.log*
 .pnpm-store/
 
 .v0/
+
+# Supabase CLI local state
+supabase/.temp/
