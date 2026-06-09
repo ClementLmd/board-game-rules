@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
+import { computeResultPoints } from '../../lib/scoring';
 
 interface ExistingResult {
   claimed_place: number | null;
@@ -44,8 +45,8 @@ export default function GameDayResults({
     const payload = {
       game_day_id: gameDayId,
       player_id: userId,
-      claimed_place: place ? parseInt(place) : null,
-      claimed_points: points ? parseInt(points) : null,
+      claimed_place: place ? parseInt(place, 10) : null,
+      claimed_points: points ? parseInt(points, 10) : null,
       status: 'pending' as const,
     };
 
@@ -76,11 +77,15 @@ export default function GameDayResults({
     );
   }
 
-  const estimatedPoints = points
-    ? Math.round(parseInt(points) * multiplier)
-    : place
-    ? Math.max(0, Math.round((basePoints - (parseInt(place) - 1) * 2) * multiplier))
-    : null;
+  const estimatedPoints =
+    place || points
+      ? computeResultPoints({
+          claimedPlace: place ? parseInt(place, 10) : null,
+          claimedPoints: points ? parseInt(points, 10) : null,
+          basePoints,
+          multiplier,
+        })
+      : null;
 
   return (
     <div>

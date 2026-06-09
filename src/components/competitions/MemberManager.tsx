@@ -109,6 +109,7 @@ export default function MemberManager({ competitionId, initialMembers }: MemberM
                     disabled={loading === m.id}
                     className="ml-2 text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
                     title="Retirer de la compétition"
+                    aria-label={`Retirer ${m.profiles?.username ?? 'ce joueur'} de la compétition`}
                   >
                     ✕
                   </button>

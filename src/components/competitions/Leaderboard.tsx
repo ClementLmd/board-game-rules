@@ -29,13 +29,13 @@ export default function Leaderboard({ competitionId, initialData, currentUserId 
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'competition_members',
           filter: `competition_id=eq.${competitionId}`,
         },
         () => {
-          // Reload leaderboard on any update
+          // Reload on any change (new member, removal, points update)
           loadLeaderboard();
         }
       )
