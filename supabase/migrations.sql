@@ -15,8 +15,12 @@ create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   username text unique,
   avatar_url text,
+  username_changed_at timestamptz,
   created_at timestamptz default now() not null
 );
+
+alter table public.profiles
+  add column if not exists username_changed_at timestamptz;
 
 -- Competitions
 create table if not exists public.competitions (
@@ -115,6 +119,27 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Limit manual pseudo changes to once every 24 hours
+create or replace function public.enforce_username_change_limit()
+returns trigger as $$
+begin
+  if new.username is distinct from old.username then
+    if old.username_changed_at is not null and old.username_changed_at > now() - interval '24 hours' then
+      raise exception 'Vous pouvez modifier votre pseudo une seule fois toutes les 24 heures.';
+    end if;
+
+    new.username_changed_at := now();
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists enforce_username_change_limit on public.profiles;
+create trigger enforce_username_change_limit
+  before update of username on public.profiles
+  for each row execute procedure public.enforce_username_change_limit();
 
 -- Recalculate total_points for a member after result validation
 create or replace function public.update_member_points(p_competition_id uuid, p_user_id uuid)
