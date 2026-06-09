@@ -10,6 +10,7 @@ interface Props {
   ogType?: string;
   hideFooter?: boolean;
   darkHeader?: boolean;
+  darkFooter?: boolean;
   hideHeader?: boolean;
 }
 
@@ -20,6 +21,7 @@ const {
   ogType = 'website',
   hideFooter = false,
   darkHeader = false,
+  darkFooter = false,
   hideHeader = false,
 } = Astro.props;
 
@@ -67,7 +69,7 @@ const ogImageUrl = new URL(ogImage, Astro.site).href;
     <main id="main-content" class="flex-1" tabindex="-1">
       <slot />
     </main>
-    {!hideFooter && <Footer />}
+    {!hideFooter && <Footer dark={darkFooter} />}
 
     <!-- Vercel Web Analytics (privacy-friendly, no tracking in dev) -->
     <script>

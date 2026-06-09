@@ -77,7 +77,7 @@ export default function CompetitionForm({ userId }: CompetitionFormProps) {
       <div className="flex gap-3 pt-2">
         <a
           href="/competitions/"
-          className="flex-1 px-4 py-3 border border-gray-700 text-gray-300 rounded-xl text-sm font-medium text-center hover:bg-gray-800 transition-colors"
+          className="flex flex-1 items-center justify-center px-4 py-3 border border-gray-700 text-gray-300 rounded-xl text-sm font-medium text-center hover:bg-gray-800 transition-colors"
         >
           Annuler
         </a>

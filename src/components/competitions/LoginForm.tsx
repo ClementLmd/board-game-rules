@@ -25,7 +25,7 @@ export default function LoginForm({
     setMessage(null);
 
     if (mode === "signup") {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -36,6 +36,11 @@ export default function LoginForm({
       if (error) {
         setError(error.message);
       } else {
+        if (data.session) {
+          window.location.href = redirectTo;
+          return;
+        }
+
         setMessage("Vérifiez votre email pour confirmer votre inscription.");
       }
     } else {

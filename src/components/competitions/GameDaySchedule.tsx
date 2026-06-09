@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 import type { GameDay } from '../../lib/database.types';
 
@@ -20,6 +20,7 @@ export default function GameDaySchedule({ competitionId, initialGameDays }: Game
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openStatusMenuForDay, setOpenStatusMenuForDay] = useState<string | null>(null);
 
   const supabase = getSupabaseBrowserClient();
 
@@ -69,6 +70,21 @@ export default function GameDaySchedule({ competitionId, initialGameDays }: Game
     { value: 'closed', label: 'Fermé' },
     { value: 'validated', label: 'Validé' },
   ];
+
+  const getStatusLabel = (status: GameDay['status']) =>
+    statusOptions.find((opt) => opt.value === status)?.label ?? status;
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-status-menu-root="true"]')) {
+        setOpenStatusMenuForDay(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
 
   return (
     <div>
@@ -205,17 +221,42 @@ export default function GameDaySchedule({ competitionId, initialGameDays }: Game
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-400">Statut :</label>
-                <select
-                  value={day.status}
-                  onChange={(e) => handleStatusChange(day.id, e.target.value as GameDay['status'])}
-                  className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                >
-                  {statusOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className="text-sm sm:text-xs text-gray-400">Statut :</label>
+                <div className="relative w-full sm:flex-1" data-status-menu-root="true">
+                  <button
+                    type="button"
+                    onClick={() => setOpenStatusMenuForDay((current) => (current === day.id ? null : day.id))}
+                    className="w-full flex items-center justify-between px-3 py-2.5 sm:px-2 sm:py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-base sm:text-xs text-white focus:outline-none focus:ring-2 sm:focus:ring-1 focus:ring-violet-500"
+                  >
+                    <span className="truncate">{getStatusLabel(day.status)}</span>
+                    <svg className="w-4 h-4 ml-2 flex-shrink-0 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {openStatusMenuForDay === day.id && (
+                    <div className="absolute top-full left-0 right-0 mt-2 z-20 bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden">
+                      {statusOptions.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={async () => {
+                            await handleStatusChange(day.id, opt.value);
+                            setOpenStatusMenuForDay(null);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 text-sm transition-colors ${
+                            day.status === opt.value
+                              ? 'bg-violet-600/30 text-violet-200'
+                              : 'text-gray-200 hover:bg-gray-700'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}

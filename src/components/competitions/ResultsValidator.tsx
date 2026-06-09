@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 import type { Json } from '../../lib/database.types';
+import { computeResultPoints, getAllPlayersBonus } from '../../lib/scoring';
 
 export interface ResultEntry {
   id: string;
@@ -38,26 +39,20 @@ export default function ResultsValidator({ initialGameDays }: ResultsValidatorPr
 
   const supabase = getSupabaseBrowserClient();
 
-  const getDefaultPoints = (result: ResultEntry, day: GameDayWithResults): number => {
-    const config = (typeof day.bonus_config === 'object' && day.bonus_config !== null && !Array.isArray(day.bonus_config))
-      ? day.bonus_config as Record<string, number>
-      : {};
-    const bonusAll = config.all_players_bonus ?? 0;
-    if (result.claimed_points !== null) {
-      return Math.round(result.claimed_points * day.multiplier) + bonusAll;
-    }
-    if (result.claimed_place !== null) {
-      return Math.max(0, Math.round((day.base_points - (result.claimed_place - 1) * 2) * day.multiplier)) + bonusAll;
-    }
-    return bonusAll;
-  };
+  const getDefaultPoints = (result: ResultEntry, day: GameDayWithResults): number =>
+    computeResultPoints({
+      claimedPlace: result.claimed_place,
+      claimedPoints: result.claimed_points,
+      basePoints: day.base_points,
+      multiplier: day.multiplier,
+      bonusAllPlayers: getAllPlayersBonus(day.bonus_config),
+    });
 
   const handleValidate = async (result: ResultEntry, day: GameDayWithResults) => {
     setLoading(result.id);
     const pointsStr = editingPoints[result.id];
-    const validatedPoints = pointsStr !== undefined
-      ? parseInt(pointsStr)
-      : getDefaultPoints(result, day);
+    const parsed = pointsStr !== undefined ? parseInt(pointsStr, 10) : NaN;
+    const validatedPoints = Number.isFinite(parsed) ? parsed : getDefaultPoints(result, day);
 
     const { error } = await supabase
       .from('game_results')
@@ -202,6 +197,7 @@ export default function ResultsValidator({ initialGameDays }: ResultsValidatorPr
                             <button
                               onClick={() => handleValidate(result, day)}
                               disabled={loading === result.id}
+                              aria-label={`Valider le résultat de ${name}`}
                               className="px-2.5 py-1 bg-green-700 text-white rounded text-xs font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
                             >
                               {loading === result.id ? '...' : '✓'}
@@ -209,6 +205,7 @@ export default function ResultsValidator({ initialGameDays }: ResultsValidatorPr
                             <button
                               onClick={() => handleReject(result.id, day.id)}
                               disabled={loading === result.id}
+                              aria-label={`Refuser le résultat de ${name}`}
                               className="px-2.5 py-1 border border-red-700 text-red-400 rounded text-xs hover:bg-red-900/30 transition-colors disabled:opacity-50"
                             >
                               ✕

@@ -137,6 +137,37 @@ begin
 end;
 $$ language plpgsql security definer;
 
+-- Prevent non-admins from writing validation fields (status / validated_points).
+-- Players may only submit/edit their claim; any non-admin write is forced back to
+-- a pending, unvalidated state. This closes the hole where a player could
+-- directly set status='validated' to award themselves arbitrary points.
+create or replace function public.enforce_result_write_rules()
+returns trigger as $$
+declare
+  v_admin_id uuid;
+begin
+  select c.admin_id into v_admin_id
+  from public.competitions c
+  join public.game_days gd on gd.competition_id = c.id
+  where gd.id = new.game_day_id;
+
+  if auth.uid() is distinct from v_admin_id then
+    new.status := 'pending';
+    new.validated_points := null;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer set search_path = '';
+
+drop trigger if exists enforce_result_write on public.game_results;
+create trigger enforce_result_write
+  before insert or update on public.game_results
+  for each row execute procedure public.enforce_result_write_rules();
+
+-- Trigger-only function: revoke direct RPC access (triggers still run it).
+revoke execute on function public.enforce_result_write_rules() from public, anon, authenticated;
+
 -- Trigger to auto-update points after result validation
 create or replace function public.handle_result_validated()
 returns trigger as $$
@@ -252,6 +283,45 @@ create trigger on_result_notification
 -- ROW LEVEL SECURITY
 -- ============================================================
 
+-- Security-definer helper. Used inside the competition_members policies to
+-- check admin ownership without the policy referencing competition_members
+-- (which would cause infinite recursion).
+create or replace function public.is_competition_admin(p_competition_id uuid)
+returns boolean as $$
+  select exists (
+    select 1 from public.competitions
+    where id = p_competition_id
+      and admin_id = auth.uid()
+  );
+$$ language sql security definer stable set search_path = '';
+
+-- Guards self-service updates to competition_members. The admin may change
+-- anything, but a member updating their own row can only re-request after a
+-- rejection (rejected -> pending) and can never change their own points or
+-- self-accept. Without this, broadening the update policy would let a member
+-- set status='accepted' or inflate total_points.
+create or replace function public.enforce_member_self_update()
+returns trigger as $$
+begin
+  if not public.is_competition_admin(new.competition_id) then
+    new.total_points := old.total_points;
+    new.status := case
+      when old.status = 'rejected' and new.status = 'pending' then 'pending'
+      else old.status
+    end;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = '';
+
+drop trigger if exists enforce_member_self_update on public.competition_members;
+create trigger enforce_member_self_update
+  before update on public.competition_members
+  for each row execute procedure public.enforce_member_self_update();
+
+-- Trigger-only function: revoke direct RPC access (triggers still run it).
+revoke execute on function public.enforce_member_self_update() from public, anon, authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.competitions enable row level security;
 alter table public.competition_members enable row level security;
@@ -270,16 +340,34 @@ create policy "competitions_insert" on public.competitions for insert with check
 create policy "competitions_update" on public.competitions for update using (auth.uid() = admin_id);
 create policy "competitions_delete" on public.competitions for delete using (auth.uid() = admin_id);
 
--- competition_members: own row or admin can read (no self-reference to avoid infinite recursion)
+-- competition_members:
+--  - accepted members are publicly visible (powers the public leaderboard)
+--  - users always see their own row (incl. pending/rejected)
+--  - the admin sees every row in their competition
+drop policy if exists "members_select" on public.competition_members;
 create policy "members_select" on public.competition_members for select
   using (
-    auth.uid() = user_id
-    or auth.uid() = (select admin_id from public.competitions where id = competition_id)
+    status = 'accepted'
+    or auth.uid() = user_id
+    or public.is_competition_admin(competition_id)
   );
+-- A user can request to join for themselves; the admin can add members directly
+-- (e.g. invite-by-username, which adds an already-accepted member).
+drop policy if exists "members_insert" on public.competition_members;
 create policy "members_insert" on public.competition_members for insert
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    or public.is_competition_admin(competition_id)
+  );
+-- Admin manages every membership; a member may update only their own row
+-- (used to re-request after a rejection). The enforce_member_self_update
+-- trigger restricts which fields/transitions a non-admin can actually change.
+drop policy if exists "members_update" on public.competition_members;
 create policy "members_update" on public.competition_members for update
-  using (auth.uid() = (select admin_id from public.competitions where id = competition_id));
+  using (
+    public.is_competition_admin(competition_id)
+    or auth.uid() = user_id
+  );
 
 -- game_days: members and admin can read, only admin can write
 create policy "game_days_select" on public.game_days for select

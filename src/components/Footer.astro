@@ -1,21 +1,35 @@
 ---
 const currentYear = new Date().getFullYear();
+interface Props {
+  dark?: boolean;
+}
+
+const { dark = false } = Astro.props;
 ---
 
-<footer class="bg-white border-t border-gray-100 mt-12">
+<footer class:list={[
+  "border-t",
+  dark ? "bg-gray-950 border-gray-800" : "mt-12 bg-white border-gray-100",
+]}>
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-between sm:items-center">
       <a href="/" class="flex items-center gap-2">
         <span class="text-xl">🎲</span>
-        <span class="font-bold text-gray-900">Règles du Jeu</span>
+        <span class:list={["font-bold", dark ? "text-white" : "text-gray-900"]}>Règles du Jeu</span>
       </a>
-      <nav aria-label="Pied de page" class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-gray-500">
-        <a href="/" class="hover:text-primary-600 transition-colors">Accueil</a>
-        <a href="/jeux/" class="hover:text-primary-600 transition-colors">Jeux</a>
-        <a href="/a-propos/" class="hover:text-primary-600 transition-colors">À propos</a>
+      <nav
+        aria-label="Pied de page"
+        class:list={[
+          "flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm",
+          dark ? "text-gray-400" : "text-gray-500",
+        ]}
+      >
+        <a href="/" class:list={["transition-colors", dark ? "hover:text-violet-400" : "hover:text-primary-600"]}>Accueil</a>
+        <a href="/jeux/" class:list={["transition-colors", dark ? "hover:text-violet-400" : "hover:text-primary-600"]}>Jeux</a>
+        <a href="/a-propos/" class:list={["transition-colors", dark ? "hover:text-violet-400" : "hover:text-primary-600"]}>À propos</a>
       </nav>
     </div>
-    <p class="mt-4 text-center text-xs text-gray-400 sm:text-left">
+    <p class:list={["mt-4 text-center text-xs sm:text-left", dark ? "text-gray-500" : "text-gray-400"]}>
       &copy; {currentYear} Règles du Jeu
     </p>
   </div>
