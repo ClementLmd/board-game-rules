@@ -67,12 +67,19 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
   }
 
-  // Create membership request
-  const { error } = await supabase.from('competition_members').insert({
-    competition_id: comp.id,
-    user_id: user.id,
-    status: 'pending',
-  });
+  // Re-use the existing row when re-requesting after a rejection (the
+  // (competition_id, user_id) unique constraint forbids a second insert).
+  const { error } = existing
+    ? await supabase
+        .from('competition_members')
+        .update({ status: 'pending' })
+        .eq('competition_id', comp.id)
+        .eq('user_id', user.id)
+    : await supabase.from('competition_members').insert({
+        competition_id: comp.id,
+        user_id: user.id,
+        status: 'pending',
+      });
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 400 });

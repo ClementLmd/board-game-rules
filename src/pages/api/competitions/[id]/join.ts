@@ -22,7 +22,23 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     .maybeSingle();
 
   if (existing && 'status' in existing) {
-    return new Response(JSON.stringify({ status: existing.status }), { status: 200 });
+    const s = (existing as { status: string }).status;
+    // Already accepted or awaiting review: nothing to do.
+    if (s === 'accepted' || s === 'pending') {
+      return new Response(JSON.stringify({ status: s }), { status: 200 });
+    }
+    // Previously rejected: re-request by re-using the existing row (the unique
+    // (competition_id, user_id) constraint forbids a second insert).
+    const { error } = await supabase
+      .from('competition_members')
+      .update({ status: 'pending' })
+      .eq('competition_id', competitionId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+    }
+    return new Response(JSON.stringify({ status: 'pending' }), { status: 200 });
   }
 
   const { error } = await supabase.from('competition_members').insert({
