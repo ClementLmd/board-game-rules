@@ -13,13 +13,16 @@ export default function InviteCode({ competitionId, code: initialCode }: InviteC
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const shareLink = code ? `${window.location.origin}/competitions/?code=${code}` : '';
-
   const copyValue = async (value: string, which: 'code' | 'link') => {
     if (!value) return;
     await navigator.clipboard.writeText(value);
     setCopied(which);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  const copyShareLink = async () => {
+    if (!code) return;
+    await copyValue(`${window.location.origin}/competitions/?code=${code}`, 'link');
   };
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -114,7 +117,7 @@ export default function InviteCode({ competitionId, code: initialCode }: InviteC
               )}
             </button>
             <button
-              onClick={() => copyValue(shareLink, 'link')}
+              onClick={copyShareLink}
               disabled={!code}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-violet-700 text-violet-300 rounded-lg text-xs font-medium hover:bg-violet-900/30 transition-colors disabled:opacity-50"
             >
