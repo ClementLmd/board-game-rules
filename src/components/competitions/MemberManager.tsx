@@ -37,6 +37,28 @@ export default function MemberManager({ competitionId, initialMembers }: MemberM
     setLoading(null);
   };
 
+  const removeMember = async (member: Member) => {
+    const name = member.profiles?.username ?? 'ce joueur';
+    const message =
+      member.status === 'accepted'
+        ? `Retirer ${name} de la compétition ? Ses résultats déjà validés seront conservés.`
+        : `Supprimer ${name} de la liste ?`;
+
+    if (!window.confirm(message)) return;
+
+    setLoading(member.id);
+    const { error } = await supabase
+      .from('competition_members')
+      .delete()
+      .eq('id', member.id)
+      .eq('competition_id', competitionId);
+
+    if (!error) {
+      setMembers((prev) => prev.filter((m) => m.id !== member.id));
+    }
+    setLoading(null);
+  };
+
   const pending = members.filter((m) => m.status === 'pending');
   const accepted = members.filter((m) => m.status === 'accepted');
   const rejected = members.filter((m) => m.status === 'rejected');
@@ -105,13 +127,11 @@ export default function MemberManager({ competitionId, initialMembers }: MemberM
                   </span>
                   <span className="text-sm font-bold text-violet-400">{m.total_points} pts</span>
                   <button
-                    onClick={() => updateStatus(m.id, 'rejected')}
+                    onClick={() => void removeMember(m)}
                     disabled={loading === m.id}
-                    className="ml-2 text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
-                    title="Retirer de la compétition"
-                    aria-label={`Retirer ${m.profiles?.username ?? 'ce joueur'} de la compétition`}
+                    className="px-2.5 py-1 border border-red-800 text-red-400 rounded-lg text-xs font-medium hover:bg-red-900/30 transition-colors disabled:opacity-50"
                   >
-                    ✕
+                    {loading === m.id ? '...' : 'Retirer'}
                   </button>
                 </div>
               ))}
@@ -131,12 +151,21 @@ export default function MemberManager({ competitionId, initialMembers }: MemberM
                 <span className="flex-1 text-sm text-gray-400 truncate">
                   {m.profiles?.username ?? 'Joueur'}
                 </span>
-                <button
-                  onClick={() => updateStatus(m.id, 'accepted')}
-                  className="text-xs text-violet-400 hover:underline"
-                >
-                  Accepter quand même
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => updateStatus(m.id, 'accepted')}
+                    className="text-xs text-violet-400 hover:underline"
+                  >
+                    Accepter quand même
+                  </button>
+                  <button
+                    onClick={() => void removeMember(m)}
+                    disabled={loading === m.id}
+                    className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </div>
             ))}
           </div>
