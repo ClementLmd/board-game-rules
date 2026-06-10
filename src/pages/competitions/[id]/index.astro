@@ -28,9 +28,9 @@ const { data: members } = await supabase
   .eq('status', 'accepted')
   .order('total_points', { ascending: false });
 
-// Check current user membership
+// Check current user membership (admins must also be accepted members to submit scores)
 let userMembership = null;
-if (user && !isAdmin) {
+if (user) {
   const { data } = await supabase
     .from('competition_members')
     .select('status, total_points')
@@ -48,7 +48,7 @@ const { data: gameDays } = await supabase
   .order('scheduled_date', { ascending: false });
 
 // Fetch user's results for open game days
-let userResults: Record<string, { claimed_place: number | null; claimed_points: number | null; status: string }> = {};
+let userResults: Record<string, { claimed_place: number | null; claimed_points: number | null; validated_points: number | null; status: string }> = {};
 if (user) {
   const openDayIds = (gameDays ?? [])
     .filter((d) => d.status === 'open')
@@ -57,7 +57,7 @@ if (user) {
   if (openDayIds.length > 0) {
     const { data: results } = await supabase
       .from('game_results')
-      .select('game_day_id, claimed_place, claimed_points, status')
+      .select('game_day_id, claimed_place, claimed_points, validated_points, status')
       .eq('player_id', user.id)
       .in('game_day_id', openDayIds);
     results?.forEach((r) => {
@@ -66,7 +66,7 @@ if (user) {
   }
 }
 
-const isMember = isAdmin || userMembership?.status === 'accepted';
+const canSubmitResults = userMembership?.status === 'accepted';
 ---
 
 <BaseLayout
@@ -162,7 +162,7 @@ const isMember = isAdmin || userMembership?.status === 'accepted';
                 </span>
               </div>
 
-              {day.status === 'open' && isMember && user && (
+              {day.status === 'open' && canSubmitResults && user && (
                 <div class="border-t border-gray-800 p-5">
                   <GameDayResults
                     client:load
@@ -175,9 +175,11 @@ const isMember = isAdmin || userMembership?.status === 'accepted';
                 </div>
               )}
 
-              {day.status === 'open' && !isMember && (
+              {day.status === 'open' && !canSubmitResults && user && (
                 <div class="border-t border-gray-800 p-4 text-sm text-gray-400 text-center">
-                  Rejoignez cette compétition pour soumettre vos résultats.
+                  {isAdmin
+                    ? 'Rejoignez la compétition en tant que joueur pour soumettre un résultat.'
+                    : 'Rejoignez cette compétition pour soumettre vos résultats.'}
                 </div>
               )}
             </div>

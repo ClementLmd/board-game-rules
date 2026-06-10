@@ -75,23 +75,23 @@ export default function LoginForm({
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg dark:shadow-none border border-gray-100 dark:border-gray-800 p-8">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           {mode === "login" ? "Connexion" : "Créer un compte"}
         </h2>
-        <p className="text-gray-500 text-sm mb-6">
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
           {mode === "login"
             ? "Connectez-vous pour rejoindre des compétitions."
             : "Rejoignez la communauté et participez aux compétitions."}
         </p>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg text-red-700 dark:text-red-400 text-sm">
             {error}
           </div>
         )}
         {message && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+          <div className="mb-4 p-3 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 rounded-lg text-green-700 dark:text-green-400 text-sm">
             {message}
           </div>
         )}
@@ -100,7 +100,7 @@ export default function LoginForm({
         <button
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 mb-4"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mb-4"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -125,17 +125,17 @@ export default function LoginForm({
 
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
+            <div className="w-full border-t border-gray-200 dark:border-gray-800" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-3 text-gray-400">ou</span>
+            <span className="bg-white dark:bg-gray-900 px-3 text-gray-400 dark:text-gray-500">ou</span>
           </div>
         </div>
 
         <form onSubmit={handleEmailAuth} className="space-y-4">
           {mode === "signup" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Pseudo
               </label>
               <input
@@ -143,13 +143,13 @@ export default function LoginForm({
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 placeholder="Votre pseudo"
               />
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email
             </label>
             <input
@@ -157,12 +157,12 @@ export default function LoginForm({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               placeholder="vous@exemple.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Mot de passe
             </label>
             <input
@@ -171,7 +171,7 @@ export default function LoginForm({
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               placeholder="•••••••••"
             />
           </div>
@@ -188,7 +188,7 @@ export default function LoginForm({
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-gray-500">
+        <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
           {mode === "login" ? (
             <>
               Pas encore de compte ?{" "}
@@ -198,7 +198,7 @@ export default function LoginForm({
                   setError(null);
                   setMessage(null);
                 }}
-                className="text-violet-600 hover:underline font-medium"
+                className="text-violet-600 dark:text-violet-400 hover:underline font-medium"
               >
                 S'inscrire
               </button>
@@ -212,7 +212,7 @@ export default function LoginForm({
                   setError(null);
                   setMessage(null);
                 }}
-                className="text-violet-600 hover:underline font-medium"
+                className="text-violet-600 dark:text-violet-400 hover:underline font-medium"
               >
                 Se connecter
               </button>

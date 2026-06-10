@@ -33,21 +33,29 @@ if (user && Astro.locals.supabase) {
   }
 }
 
+// When `dark` is true the header is force-dark (used by hardcoded-dark pages
+// like /competitions). Otherwise it follows the site theme via `dark:` variants.
 const headerClass = dark
   ? 'bg-gray-950/95 backdrop-blur-md border-b border-gray-800 sticky top-0 z-50'
-  : 'bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50';
+  : 'bg-white/80 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50';
 
 const logoTextClass = dark
   ? 'font-bold text-lg text-gray-100 group-hover:text-violet-400 transition-colors'
-  : 'font-bold text-lg text-gray-900 group-hover:text-primary-600 transition-colors';
+  : 'font-bold text-lg text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-violet-400 transition-colors';
 
-const linkActive = dark ? 'bg-gray-800 text-gray-100' : 'bg-primary-50 text-primary-700';
+const linkActive = dark
+  ? 'bg-gray-800 text-gray-100'
+  : 'bg-primary-50 text-primary-700 dark:bg-gray-800 dark:text-gray-100';
 const linkIdle = dark
   ? 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
-  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50';
+  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800';
 const mobileButtonClass = dark
   ? 'md:hidden p-2 rounded-lg text-gray-400 hover:bg-gray-800 transition-colors'
-  : 'md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors';
+  : 'md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors';
+
+const themeToggleClass = dark
+  ? 'p-2 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-gray-800 transition-colors'
+  : 'p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 transition-colors';
 ---
 
 <header class={headerClass} role="banner">
@@ -76,6 +84,14 @@ const mobileButtonClass = dark
 
       <!-- Auth -->
       <div class="hidden md:flex items-center gap-2">
+        <button type="button" class={`theme-toggle ${themeToggleClass}`} aria-label="Changer de thème" title="Changer de thème">
+          <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M6.05 6.05L4.636 4.636m12.728 0l-1.414 1.414M6.05 17.95l-1.414 1.414M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
         {user && profile ? (
           <UserMenu
             client:load
@@ -107,20 +123,30 @@ const mobileButtonClass = dark
         )}
       </div>
 
-      <!-- Mobile menu button -->
-      <button
-        id="mobile-menu-btn"
-        class={mobileButtonClass}
-        aria-label="Ouvrir le menu"
-        aria-expanded="false"
-      >
-        <svg id="menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-        <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      <!-- Mobile: theme toggle + menu button -->
+      <div class="flex items-center gap-1 md:hidden">
+        <button type="button" class={`theme-toggle ${themeToggleClass}`} aria-label="Changer de thème" title="Changer de thème">
+          <svg class="w-6 h-6 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M6.05 6.05L4.636 4.636m12.728 0l-1.414 1.414M6.05 17.95l-1.414 1.414M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg class="w-6 h-6 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
+        <button
+          id="mobile-menu-btn"
+          class={mobileButtonClass}
+          aria-label="Ouvrir le menu"
+          aria-expanded="false"
+        >
+          <svg id="menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Mobile Nav -->
@@ -137,7 +163,7 @@ const mobileButtonClass = dark
             {link.label}
           </a>
         ))}
-        <div class="border-t border-gray-100 mt-2 pt-2">
+        <div class="border-t border-gray-100 dark:border-gray-800 mt-2 pt-2">
           {user ? (
             <a
               href="/profile/"
@@ -170,5 +196,18 @@ const mobileButtonClass = dark
     iconOpen?.classList.toggle('hidden', isOpen);
     iconClose?.classList.toggle('hidden', !isOpen);
     btn.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  // Theme toggle (light / dark) — persisted in localStorage
+  document.querySelectorAll('.theme-toggle').forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+      try {
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      } catch {
+        /* ignore storage errors */
+      }
+    });
   });
 </script>

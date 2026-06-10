@@ -5,6 +5,7 @@ import { computeResultPoints } from '../../lib/scoring';
 interface ExistingResult {
   claimed_place: number | null;
   claimed_points: number | null;
+  validated_points: number | null;
   status: string;
 }
 
@@ -72,7 +73,7 @@ export default function GameDayResults({
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
-        Résultat validé : <span className="font-bold">{existingResult?.claimed_points ?? '—'} pts</span>
+        Résultat validé : <span className="font-bold">{existingResult?.validated_points ?? '—'} pts</span>
       </div>
     );
   }
