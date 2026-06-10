@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
+import { NOTIFICATIONS_READ_EVENT } from '../../lib/notifications';
 
 interface UserMenuProps {
   username: string | null;
@@ -21,6 +22,23 @@ export default function UserMenu({ username, avatarUrl, unreadCount = 0, userId 
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    setLiveUnread(unreadCount);
+  }, [unreadCount]);
+
+  useEffect(() => {
+    const onRead = (e: Event) => {
+      const detail = (e as CustomEvent<{ all?: boolean }>).detail;
+      if (detail?.all) {
+        setLiveUnread(0);
+      } else {
+        setLiveUnread((c) => Math.max(0, c - 1));
+      }
+    };
+    window.addEventListener(NOTIFICATIONS_READ_EVENT, onRead);
+    return () => window.removeEventListener(NOTIFICATIONS_READ_EVENT, onRead);
   }, []);
 
   useEffect(() => {
