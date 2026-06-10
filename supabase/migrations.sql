@@ -91,7 +91,7 @@ create table if not exists public.game_results (
 create table if not exists public.notifications (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
-  type text check (type in ('join_request', 'join_accepted', 'join_rejected', 'result_validated', 'game_day_upcoming')) not null,
+  type text check (type in ('join_request', 'join_accepted', 'join_rejected', 'member_removed', 'result_validated', 'result_submitted', 'game_day_upcoming')) not null,
   data jsonb default '{}' not null,
   read boolean default false not null,
   created_at timestamptz default now() not null
@@ -275,6 +275,43 @@ create trigger on_join_request
   after insert or update of status on public.competition_members
   for each row execute procedure public.handle_join_request();
 
+-- Notify player when an admin removes them from a competition
+create or replace function public.handle_member_removed()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_competition_name text;
+begin
+  if old.status = 'accepted' then
+    select name into v_competition_name
+    from public.competitions
+    where id = old.competition_id;
+
+    insert into public.notifications (user_id, type, data)
+    values (
+      old.user_id,
+      'member_removed',
+      jsonb_build_object(
+        'competition_id', old.competition_id,
+        'competition_name', v_competition_name
+      )
+    );
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists on_member_removed on public.competition_members;
+create trigger on_member_removed
+  before delete on public.competition_members
+  for each row execute procedure public.handle_member_removed();
+
+-- Trigger-only function: revoke direct RPC access (triggers still run it).
+revoke execute on function public.handle_member_removed() from public, anon, authenticated;
+
 -- Trigger to send notification when a result is validated
 create or replace function public.handle_result_notification()
 returns trigger as $$
@@ -306,6 +343,66 @@ drop trigger if exists on_result_notification on public.game_results;
 create trigger on_result_notification
   after insert or update of status on public.game_results
   for each row execute procedure public.handle_result_notification();
+
+-- Notify competition admin when a player submits or updates a pending result
+create or replace function public.handle_result_submitted_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin_id uuid;
+  v_competition_id uuid;
+  v_competition_name text;
+  v_game_name text;
+  v_player_username text;
+begin
+  if new.status <> 'pending' then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+    and old.claimed_place is not distinct from new.claimed_place
+    and old.claimed_points is not distinct from new.claimed_points then
+    return new;
+  end if;
+
+  select c.admin_id, c.id, c.name, gd.game_name
+  into v_admin_id, v_competition_id, v_competition_name, v_game_name
+  from public.game_days gd
+  join public.competitions c on c.id = gd.competition_id
+  where gd.id = new.game_day_id;
+
+  select p.username into v_player_username
+  from public.profiles p
+  where p.id = new.player_id;
+
+  insert into public.notifications (user_id, type, data)
+  values (
+    v_admin_id,
+    'result_submitted',
+    jsonb_build_object(
+      'competition_id', v_competition_id,
+      'competition_name', v_competition_name,
+      'game_day_id', new.game_day_id,
+      'game_name', v_game_name,
+      'player_id', new.player_id,
+      'player_username', v_player_username,
+      'claimed_place', new.claimed_place,
+      'claimed_points', new.claimed_points,
+      'result_id', new.id
+    )
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_result_submitted_notification on public.game_results;
+create trigger on_result_submitted_notification
+  after insert or update of claimed_place, claimed_points on public.game_results
+  for each row execute procedure public.handle_result_submitted_notification();
 
 -- ============================================================
 -- ROW LEVEL SECURITY
@@ -396,6 +493,9 @@ create policy "members_update" on public.competition_members for update
     public.is_competition_admin(competition_id)
     or auth.uid() = user_id
   );
+drop policy if exists "members_delete" on public.competition_members;
+create policy "members_delete" on public.competition_members for delete
+  using (public.is_competition_admin(competition_id));
 
 -- game_days: members and admin can read, only admin can write
 create policy "game_days_select" on public.game_days for select
@@ -426,13 +526,36 @@ create policy "results_select" on public.game_results for select
     )
   );
 create policy "results_insert" on public.game_results for insert
-  with check (auth.uid() = player_id);
+  with check (
+    auth.uid() = player_id
+    and exists (
+      select 1
+      from public.competition_members cm
+      join public.game_days gd on gd.competition_id = cm.competition_id
+      where gd.id = game_day_id
+        and cm.user_id = auth.uid()
+        and cm.status = 'accepted'
+    )
+  );
 create policy "results_update" on public.game_results for update
-  using (auth.uid() = player_id or auth.uid() = (
-    select c.admin_id from public.competitions c
-    join public.game_days gd on gd.competition_id = c.id
-    where gd.id = game_day_id
-  ));
+  using (
+    (
+      auth.uid() = player_id
+      and exists (
+        select 1
+        from public.competition_members cm
+        join public.game_days gd on gd.competition_id = cm.competition_id
+        where gd.id = game_day_id
+          and cm.user_id = auth.uid()
+          and cm.status = 'accepted'
+      )
+    )
+    or auth.uid() = (
+      select c.admin_id from public.competitions c
+      join public.game_days gd on gd.competition_id = c.id
+      where gd.id = game_day_id
+    )
+  );
 
 -- notifications: users can only read/update their own
 create policy "notifications_select" on public.notifications for select using (auth.uid() = user_id);

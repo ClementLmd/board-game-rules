@@ -209,7 +209,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          type: 'join_request' | 'join_accepted' | 'join_rejected' | 'result_validated' | 'game_day_upcoming';
+          type: 'join_request' | 'join_accepted' | 'join_rejected' | 'member_removed' | 'result_validated' | 'result_submitted' | 'game_day_upcoming';
           data: Json;
           read: boolean;
           created_at: string;
@@ -217,7 +217,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          type: 'join_request' | 'join_accepted' | 'join_rejected' | 'result_validated' | 'game_day_upcoming';
+          type: 'join_request' | 'join_accepted' | 'join_rejected' | 'member_removed' | 'result_validated' | 'result_submitted' | 'game_day_upcoming';
           data?: Json;
           read?: boolean;
           created_at?: string;
@@ -225,7 +225,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          type?: 'join_request' | 'join_accepted' | 'join_rejected' | 'result_validated' | 'game_day_upcoming';
+          type?: 'join_request' | 'join_accepted' | 'join_rejected' | 'member_removed' | 'result_validated' | 'result_submitted' | 'game_day_upcoming';
           data?: Json;
           read?: boolean;
           created_at?: string;
