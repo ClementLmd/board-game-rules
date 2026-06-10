@@ -193,22 +193,31 @@ export default function ResultsValidator({ initialGameDays }: ResultsValidatorPr
                               className="w-20 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                             />
                           </div>
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-2">
                             <button
                               onClick={() => handleValidate(result, day)}
                               disabled={loading === result.id}
                               aria-label={`Valider le résultat de ${name}`}
-                              className="px-2.5 py-1 bg-green-700 text-white rounded text-xs font-medium hover:bg-green-600 transition-colors disabled:opacity-50"
+                              className="inline-flex items-center justify-center gap-1.5 min-w-[6.5rem] px-4 py-2.5 bg-green-700 text-white rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
                             >
-                              {loading === result.id ? '...' : '✓'}
+                              {loading === result.id ? (
+                                '...'
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Valider
+                                </>
+                              )}
                             </button>
                             <button
                               onClick={() => handleReject(result.id, day.id)}
                               disabled={loading === result.id}
                               aria-label={`Refuser le résultat de ${name}`}
-                              className="px-2.5 py-1 border border-red-700 text-red-400 rounded text-xs hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                              className="px-3 py-1.5 border border-red-700 text-red-400 rounded-lg text-xs hover:bg-red-900/30 transition-colors disabled:opacity-50"
                             >
-                              ✕
+                              Refuser
                             </button>
                           </div>
                         </div>
